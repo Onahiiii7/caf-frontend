@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">CAF Pharmacy</string>
+    <string name="title_activity_main">CAF Pharmacy</string>
+    <string name="package_name">com.caf.pharmacy</string>
+    <string name="custom_url_scheme">com.caf.pharmacy</string>
+</resources>

@@ -1,0 +1,293 @@
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import apiClient from '../../lib/api-client';
+import { AdminLayout } from '../../components/AdminLayout';
+import { Button } from '../../components/ui/Button';
+import { Table } from '../../components/ui/Table';
+import { Modal } from '../../components/ui/Modal';
+import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
+import { Loading } from '../../components/ui/Loading';
+import { Error } from '../../components/ui/Error';
+import { useBranchStore, getBranchId } from '../../stores/branch-store';
+import { queryKeys } from '../../lib/query-keys';
+import { buildApiUrl } from '../../lib/api-utils';
+import { useToast } from '../../hooks/useToast';
+import { useCurrency } from '../../hooks/useCurrency';
+
+const CATEGORIES = [
+  { value: 'supplies', label: 'Supplies' },
+  { value: 'maintenance', label: 'Maintenance' },
+  { value: 'utilities', label: 'Utilities' },
+  { value: 'petty_cash', label: 'Petty Cash' },
+  { value: 'other', label: 'Other' },
+];
+
+const CATEGORY_BADGE: Record<string, string> = {
+  supplies: 'bg-blue-100 text-blue-800',
+  maintenance: 'bg-orange-100 text-orange-800',
+  utilities: 'bg-yellow-100 text-yellow-800',
+  petty_cash: 'bg-purple-100 text-purple-800',
+  other: 'bg-gray-100 text-gray-600',
+};
+
+interface Expense {
+  _id: string;
+  branchId: string;
+  shiftId: { _id: string; startTime: string } | string;
+  recordedBy: { _id: string; firstName: string; lastName: string } | string;
+  amount: number;
+  category: string;
+  description: string;
+  notes?: string;
+  receiptNumber?: string;
+  createdAt: string;
+}
+
+interface ByCategoryItem {
+  category: string;
+  total: number;
+  count: number;
+}
+
+interface ExpenseFormData {
+  shiftId: string;
+  amount: number;
+  category: string;
+  description: string;
+  notes?: string;
+  receiptNumber?: string;
+}
+
+export function ExpensesPage() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { selectedBranch } = useBranchStore();
+  const queryClient = useQueryClient();
+  const { showSuccess, showError } = useToast();
+  const { format } = useCurrency();
+
+  const branchId = getBranchId(selectedBranch);
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<ExpenseFormData>();
+
+  const { data: expenses, isLoading, error } = useQuery({
+    queryKey: [...queryKeys.expenses.all(), 'branch', branchId],
+    queryFn: async () => {
+      const response = await apiClient.get(buildApiUrl(`/expenses/branch/${branchId}`));
+      return response.data as Expense[];
+    },
+    enabled: !!branchId,
+  });
+
+  const { data: byCategory } = useQuery({
+    queryKey: [...queryKeys.expenses.all(), 'by-category', branchId],
+    queryFn: async () => {
+      const response = await apiClient.get(buildApiUrl(`/expenses/branch/${branchId}/by-category`));
+      return response.data as ByCategoryItem[];
+    },
+    enabled: !!branchId,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: ExpenseFormData) => {
+      const response = await apiClient.post('/expenses', {
+        ...data,
+        branchId,
+        recordedBy: 'self', // backend resolves from JWT
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.expenses.all() });
+      showSuccess('Expense recorded');
+      setIsModalOpen(false);
+      reset();
+    },
+    onError: (err: any) => {
+      showError(err?.response?.data?.message ?? 'Failed to record expense');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/expenses/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.expenses.all() });
+      showSuccess('Expense deleted');
+    },
+    onError: (err: any) => {
+      showError(err?.response?.data?.message ?? 'Failed to delete expense');
+    },
+  });
+
+  const totalExpenses = expenses?.reduce((sum, e) => sum + e.amount, 0) ?? 0;
+
+  return (
+    <AdminLayout>
+      <div className="max-w-6xl mx-auto py-6 px-4">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Expenses</h1>
+          <Button onClick={() => setIsModalOpen(true)} disabled={!selectedBranch}>
+            + Record Expense
+          </Button>
+        </div>
+
+        {!selectedBranch && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4 text-sm mb-4">
+            Select a branch to view expenses.
+          </div>
+        )}
+
+        {/* Summary cards */}
+        {byCategory && byCategory.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div className="col-span-2 md:col-span-1 bg-white border border-gray-200 rounded-lg p-4">
+              <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Total</p>
+              <p className="text-2xl font-bold text-gray-900">{format(totalExpenses)}</p>
+              <p className="text-xs text-gray-400 mt-1">{expenses?.length ?? 0} entries</p>
+            </div>
+            {byCategory.map((item) => (
+              <div key={item.category} className="bg-white border border-gray-200 rounded-lg p-4">
+                <p className="text-xs text-gray-500 uppercase font-semibold mb-1">{item.category.replace('_', ' ')}</p>
+                <p className="text-xl font-bold text-gray-900">{format(item.total)}</p>
+                <p className="text-xs text-gray-400 mt-1">{item.count} entries</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {isLoading && <Loading />}
+        {error && <Error message="Failed to load expenses" />}
+
+        {expenses && expenses.length === 0 && (
+          <div className="text-gray-500 text-sm text-center py-12">
+            No expenses recorded for this branch.
+          </div>
+        )}
+
+        {expenses && expenses.length > 0 && (
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <Table
+              columns={[
+                {
+                  key: 'createdAt',
+                  header: 'Date',
+                  render: (row: Expense) => new Date(row.createdAt).toLocaleDateString(),
+                },
+                {
+                  key: 'category',
+                  header: 'Category',
+                  render: (row: Expense) => (
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold capitalize ${CATEGORY_BADGE[row.category] ?? CATEGORY_BADGE.other}`}>
+                      {row.category.replace('_', ' ')}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'description',
+                  header: 'Description',
+                  render: (row: Expense) => (
+                    <div>
+                      <p className="font-medium text-gray-900">{row.description}</p>
+                      {row.receiptNumber && (
+                        <p className="text-xs text-gray-400">Receipt: {row.receiptNumber}</p>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  key: 'recordedBy',
+                  header: 'Recorded By',
+                  render: (row: Expense) =>
+                    typeof row.recordedBy === 'object'
+                      ? `${row.recordedBy.firstName} ${row.recordedBy.lastName}`
+                      : '—',
+                },
+                {
+                  key: 'amount',
+                  header: 'Amount',
+                  render: (row: Expense) => (
+                    <span className="font-semibold text-gray-900">{format(row.amount)}</span>
+                  ),
+                },
+                {
+                  key: 'actions',
+                  header: '',
+                  render: (row: Expense) => (
+                    <button
+                      onClick={() => deleteMutation.mutate(row._id)}
+                      disabled={deleteMutation.isPending}
+                      className="text-red-500 hover:text-red-700 text-sm"
+                    >
+                      Delete
+                    </button>
+                  ),
+                },
+              ]}
+              data={expenses}
+            />
+          </div>
+        )}
+
+        <Modal
+          isOpen={isModalOpen}
+          onClose={() => { setIsModalOpen(false); reset(); }}
+          title="Record Expense"
+        >
+          <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
+            <Input
+              label="Shift ID"
+              {...register('shiftId', { required: 'Shift ID is required' })}
+              error={errors.shiftId?.message}
+              placeholder="MongoDB ID of the current shift"
+            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+              <select
+                {...register('category', { required: 'Category is required' })}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Select category…</option>
+                {CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+              {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category.message}</p>}
+            </div>
+            <Input
+              label="Amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              {...register('amount', { required: 'Amount is required', valueAsNumber: true, min: { value: 0.01, message: 'Must be > 0' } })}
+              error={errors.amount?.message}
+            />
+            <Input
+              label="Description"
+              {...register('description', { required: 'Description is required' })}
+              error={errors.description?.message}
+            />
+            <Input
+              label="Receipt Number (optional)"
+              {...register('receiptNumber')}
+            />
+            <Input
+              label="Notes (optional)"
+              {...register('notes')}
+            />
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="outline" type="button" onClick={() => { setIsModalOpen(false); reset(); }}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createMutation.isPending}>
+                Record Expense
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      </div>
+    </AdminLayout>
+  );
+}

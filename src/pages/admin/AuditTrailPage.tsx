@@ -1,0 +1,366 @@
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import apiClient from '../../lib/api-client';
+import { AdminLayout } from '../../components/AdminLayout';
+import { Button } from '../../components/ui/Button';
+import { Table } from '../../components/ui/Table';
+import { Select } from '../../components/ui/Select';
+import { Input } from '../../components/ui/Input';
+import { Loading } from '../../components/ui/Loading';
+import { Error } from '../../components/ui/Error';
+import { queryKeys } from '../../lib/query-keys';
+import { buildApiUrl } from '../../lib/api-utils';
+import { useSearchWithDebounce } from '../../hooks/useSearchWithDebounce';
+
+interface AuditLog {
+  _id: string;
+  action: string;
+  entity: string;
+  entityId: string;
+  userName: string;
+  previousData?: Record<string, unknown>;
+  newData?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  ipAddress?: string;
+  userAgent?: string;
+  timestamp: string;
+}
+
+export const AuditTrailPage = () => {
+  const {
+    value: searchQuery,
+    setValue: setSearchQuery,
+    debouncedValue: debouncedSearchQuery,
+  } = useSearchWithDebounce('');
+  const [actionFilter, setActionFilter] = useState<string>('all');
+  const [entityFilter, setEntityFilter] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+
+  // Fetch audit logs
+  const { data: logs, isLoading, error } = useQuery({
+    queryKey: queryKeys.auditLogs.list({
+      search: debouncedSearchQuery,
+      action: actionFilter,
+      entity: entityFilter,
+      dateFrom,
+      dateTo,
+    }),
+    queryFn: async () => {
+      const response = await apiClient.get(
+        buildApiUrl('/audit/logs', {
+          action: actionFilter !== 'all' ? actionFilter : undefined,
+          resource: entityFilter !== 'all' ? entityFilter : undefined,
+          startDate: dateFrom,
+          endDate: dateTo,
+          limit: 200,
+        }),
+      );
+
+      const rawLogs = (response.data?.data || []) as Array<Record<string, unknown>>;
+
+      const mapped = rawLogs.map((log) => ({
+        _id: String(log._id || ''),
+        action: String(log.action || ''),
+        entity: String(log.resource || ''),
+        entityId: String(log.resourceId || ''),
+        userName: String(log.username || 'Unknown'),
+        previousData: (log.previousData || undefined) as
+          | Record<string, unknown>
+          | undefined,
+        newData: (log.newData || undefined) as Record<string, unknown> | undefined,
+        metadata: (log.metadata || undefined) as Record<string, unknown> | undefined,
+        ipAddress: log.ipAddress ? String(log.ipAddress) : undefined,
+        userAgent: log.userAgent ? String(log.userAgent) : undefined,
+        timestamp: String(log.createdAt || new Date().toISOString()),
+      })) as AuditLog[];
+
+      if (!debouncedSearchQuery) {
+        return mapped;
+      }
+
+      const needle = debouncedSearchQuery.toLowerCase();
+      return mapped.filter(
+        (log) =>
+          log.userName.toLowerCase().includes(needle) ||
+          log.entity.toLowerCase().includes(needle) ||
+          log.entityId.toLowerCase().includes(needle) ||
+          log.action.toLowerCase().includes(needle),
+      );
+    },
+  });
+
+  const exportedLogs = useMemo(() => logs || [], [logs]);
+
+  const handleExport = () => {
+    const escapeCsv = (value: unknown) => {
+      const str = String(value ?? '');
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const headers = [
+      'timestamp',
+      'user',
+      'action',
+      'resource',
+      'resourceId',
+      'ipAddress',
+      'userAgent',
+    ];
+
+    const rows = exportedLogs.map((log) => [
+      log.timestamp,
+      log.userName,
+      log.action,
+      log.entity,
+      log.entityId,
+      log.ipAddress || '',
+      log.userAgent || '',
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((row) => row.map(escapeCsv).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute(
+      'download',
+      `audit-trail-${new Date().toISOString().split('T')[0]}.csv`,
+    );
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  if (isLoading) return <AdminLayout><Loading /></AdminLayout>;
+  if (error) return <AdminLayout><Error message="Failed to load audit logs" /></AdminLayout>;
+
+  const columns = [
+    {
+      key: 'timestamp',
+      header: 'Timestamp',
+      render: (log: AuditLog) => new Date(log.timestamp).toLocaleString(),
+    },
+    { key: 'userName', header: 'User' },
+    {
+      key: 'action',
+      header: 'Action',
+      render: (log: AuditLog) => {
+        const actionColors: Record<string, string> = {
+          create: 'bg-green-100 text-green-800',
+          update: 'bg-blue-100 text-blue-800',
+          delete: 'bg-red-100 text-red-800',
+          login: 'bg-purple-100 text-purple-800',
+          logout: 'bg-gray-100 text-gray-800',
+        };
+        return (
+          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${actionColors[log.action] || 'bg-gray-100 text-gray-800'}`}>
+            {log.action.charAt(0).toUpperCase() + log.action.slice(1)}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'entity',
+      header: 'Entity',
+      render: (log: AuditLog) => (
+        <span className="font-medium">{log.entity}</span>
+      ),
+    },
+    {
+      key: 'entityId',
+      header: 'Entity ID',
+      render: (log: AuditLog) => (
+        <span className="text-xs text-gray-500">{log.entityId}</span>
+      ),
+    },
+    {
+      key: 'ipAddress',
+      header: 'IP Address',
+      render: (log: AuditLog) => log.ipAddress || 'N/A',
+    },
+    {
+      key: 'actions',
+      header: 'Details',
+      render: (log: AuditLog) => (
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => setSelectedLog(log)}
+        >
+          View
+        </Button>
+      ),
+    },
+  ];
+
+  return (
+    <AdminLayout>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-gray-900">Audit Trail</h1>
+          <Button onClick={handleExport}>
+            Export to CSV
+          </Button>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="grid grid-cols-5 gap-4">
+            <Input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+
+            <Select
+              value={actionFilter}
+              onChange={(e) => setActionFilter(e.target.value)}
+            >
+              <option value="all">All Actions</option>
+              <option value="create">Create</option>
+              <option value="update">Update</option>
+              <option value="delete">Delete</option>
+              <option value="login">Login</option>
+              <option value="logout">Logout</option>
+            </Select>
+
+            <Select
+              value={entityFilter}
+              onChange={(e) => setEntityFilter(e.target.value)}
+            >
+              <option value="all">All Entities</option>
+              <option value="product">Product</option>
+              <option value="sale">Sale</option>
+              <option value="user">User</option>
+              <option value="customer">Customer</option>
+              <option value="batch">Batch</option>
+              <option value="transfer">Transfer</option>
+            </Select>
+
+            <Input
+              type="date"
+              placeholder="From Date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+            />
+
+            <Input
+              type="date"
+              placeholder="To Date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Audit Logs Table */}
+        <div className="bg-white rounded-lg shadow">
+          <Table
+            data={logs || []}
+            columns={columns}
+          />
+        </div>
+
+        {/* Details Modal */}
+        {selectedLog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Audit Log Details</h2>
+                <button
+                  onClick={() => setSelectedLog(null)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Timestamp</p>
+                    <p className="text-sm text-gray-900">{new Date(selectedLog.timestamp).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">User</p>
+                    <p className="text-sm text-gray-900">{selectedLog.userName}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Action</p>
+                    <p className="text-sm text-gray-900">{selectedLog.action}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Entity</p>
+                    <p className="text-sm text-gray-900">{selectedLog.entity}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Entity ID</p>
+                  <p className="text-sm text-gray-900">{selectedLog.entityId}</p>
+                </div>
+
+                {selectedLog.ipAddress && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">IP Address</p>
+                    <p className="text-sm text-gray-900">{selectedLog.ipAddress}</p>
+                  </div>
+                )}
+
+                {(selectedLog.previousData || selectedLog.newData) && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 mb-2">Changes</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Previous Data</p>
+                        <pre className="p-3 bg-gray-50 rounded text-xs overflow-x-auto">
+                          {JSON.stringify(selectedLog.previousData || {}, null, 2)}
+                        </pre>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">New Data</p>
+                        <pre className="p-3 bg-gray-50 rounded text-xs overflow-x-auto">
+                          {JSON.stringify(selectedLog.newData || {}, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {selectedLog.metadata && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Additional Metadata</p>
+                    <pre className="mt-2 p-3 bg-gray-50 rounded text-xs overflow-x-auto">
+                      {JSON.stringify(selectedLog.metadata, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end mt-6">
+                <Button
+                  variant="secondary"
+                  onClick={() => setSelectedLog(null)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </AdminLayout>
+  );
+};

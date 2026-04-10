@@ -1,0 +1,304 @@
+/**
+ * Standardized Query Key Factory
+ * 
+ * Provides consistent query key structure across the application.
+ * Benefits:
+ * - Easy cache invalidation
+ * - Type-safe query keys
+ * - Consistent naming
+ * - Easy to maintain
+ */
+
+export interface BaseFilters {
+  branchId?: string;
+  search?: string;
+}
+
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface ProductFilters extends BaseFilters, PaginationParams {
+  category?: string;
+  inStock?: boolean;
+}
+
+export interface UserFilters extends BaseFilters, PaginationParams {
+  role?: string;
+  isActive?: boolean;
+}
+
+export interface ReportFilters {
+  branchId?: string;
+  startDate?: string;
+  endDate?: string;
+  includeExpired?: boolean;
+  [key: string]: string | number | boolean | undefined;
+}
+
+export interface SalesFilters extends BaseFilters, PaginationParams {
+  category?: string;
+  paymentMethod?: string;
+  status?: string;
+  cashierId?: string;
+  productId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface TransferFilters extends BaseFilters, PaginationParams {
+  status?: string;
+  fromBranchId?: string;
+  toBranchId?: string;
+}
+
+/**
+ * Query key factory following React Query best practices
+ * Structure: [scope, entity, operation, filters]
+ */
+export const queryKeys = {
+  // Root key
+  all: () => ['admin'] as const,
+  
+  // Products
+  products: {
+    all: () => [...queryKeys.all(), 'products'] as const,
+    lists: () => [...queryKeys.products.all(), 'list'] as const,
+    list: (filters?: ProductFilters) => [...queryKeys.products.lists(), filters] as const,
+    details: () => [...queryKeys.products.all(), 'detail'] as const,
+    detail: (id: string) => [...queryKeys.products.details(), id] as const,
+  },
+  
+  // Users
+  users: {
+    all: () => [...queryKeys.all(), 'users'] as const,
+    lists: () => [...queryKeys.users.all(), 'list'] as const,
+    list: (filters?: UserFilters) => [...queryKeys.users.lists(), filters] as const,
+    details: () => [...queryKeys.users.all(), 'detail'] as const,
+    detail: (id: string) => [...queryKeys.users.details(), id] as const,
+  },
+  
+  // Branches
+  branches: {
+    all: () => [...queryKeys.all(), 'branches'] as const,
+    lists: () => [...queryKeys.branches.all(), 'list'] as const,
+    list: (filters?: BaseFilters) => [...queryKeys.branches.lists(), filters] as const,
+    details: () => [...queryKeys.branches.all(), 'detail'] as const,
+    detail: (id: string) => [...queryKeys.branches.details(), id] as const,
+  },
+  
+  // Customers
+  customers: {
+    all: () => [...queryKeys.all(), 'customers'] as const,
+    lists: () => [...queryKeys.customers.all(), 'list'] as const,
+    list: (filters?: BaseFilters) => [...queryKeys.customers.lists(), filters] as const,
+    details: () => [...queryKeys.customers.all(), 'detail'] as const,
+    detail: (id: string) => [...queryKeys.customers.details(), id] as const,
+  },
+  
+  // Suppliers
+  suppliers: {
+    all: () => [...queryKeys.all(), 'suppliers'] as const,
+    lists: () => [...queryKeys.suppliers.all(), 'list'] as const,
+    list: (filters?: BaseFilters) => [...queryKeys.suppliers.lists(), filters] as const,
+    details: () => [...queryKeys.suppliers.all(), 'detail'] as const,
+    detail: (id: string) => [...queryKeys.suppliers.details(), id] as const,
+  },
+  
+  // Transfers
+  transfers: {
+    all: () => [...queryKeys.all(), 'transfers'] as const,
+    lists: () => [...queryKeys.transfers.all(), 'list'] as const,
+    list: (filters?: TransferFilters) => [...queryKeys.transfers.lists(), filters] as const,
+    details: () => [...queryKeys.transfers.all(), 'detail'] as const,
+    detail: (id: string) => [...queryKeys.transfers.details(), id] as const,
+  },
+  
+  // Purchase Orders
+  purchaseOrders: {
+    all: () => [...queryKeys.all(), 'purchase-orders'] as const,
+    lists: () => [...queryKeys.purchaseOrders.all(), 'list'] as const,
+    list: (filters?: BaseFilters) => [...queryKeys.purchaseOrders.lists(), filters] as const,
+    details: () => [...queryKeys.purchaseOrders.all(), 'detail'] as const,
+    detail: (id: string) => [...queryKeys.purchaseOrders.details(), id] as const,
+  },
+  
+  // Promotions
+  promotions: {
+    all: () => [...queryKeys.all(), 'promotions'] as const,
+    lists: () => [...queryKeys.promotions.all(), 'list'] as const,
+    list: (filters?: BaseFilters & { isActive?: boolean; scope?: string }) => [...queryKeys.promotions.lists(), filters] as const,
+    details: () => [...queryKeys.promotions.all(), 'detail'] as const,
+    detail: (id: string) => [...queryKeys.promotions.details(), id] as const,
+  },
+
+  // Sales
+  sales: {
+    all: () => [...queryKeys.all(), 'sales'] as const,
+    lists: () => [...queryKeys.sales.all(), 'list'] as const,
+    list: (filters?: SalesFilters) => [...queryKeys.sales.lists(), filters] as const,
+    recent: (filters?: SalesFilters) => [...queryKeys.sales.all(), 'recent', filters] as const,
+    history: (filters?: SalesFilters) => [...queryKeys.sales.all(), 'history', filters] as const,
+    detail: (id?: string) => [...queryKeys.sales.all(), 'detail', id] as const,
+  },
+
+  // Shifts
+  shifts: {
+    all: () => [...queryKeys.all(), 'shifts'] as const,
+    current: (filters?: { branchId?: string; cashierId?: string; terminalId?: string }) =>
+      [...queryKeys.shifts.all(), 'current', filters] as const,
+    history: (filters?: { branchId?: string; limit?: number }) => [...queryKeys.shifts.all(), 'history', filters] as const,
+    report: (shiftId?: string) => [...queryKeys.shifts.all(), 'report', shiftId] as const,
+  },
+
+  // Expenses
+  expenses: {
+    all: () => [...queryKeys.all(), 'expenses'] as const,
+    shift: (shiftId?: string) => [...queryKeys.expenses.all(), 'shift', shiftId] as const,
+  },
+  
+  // Email Templates
+  emailTemplates: {
+    all: () => [...queryKeys.all(), 'email-templates'] as const,
+    lists: () => [...queryKeys.emailTemplates.all(), 'list'] as const,
+    list: (filters?: BaseFilters) => [...queryKeys.emailTemplates.lists(), filters] as const,
+    details: () => [...queryKeys.emailTemplates.all(), 'detail'] as const,
+    detail: (id: string) => [...queryKeys.emailTemplates.details(), id] as const,
+  },
+
+  // Email Logs
+  emailLogs: {
+    all: () => [...queryKeys.all(), 'email-logs'] as const,
+    lists: () => [...queryKeys.emailLogs.all(), 'list'] as const,
+    list: (filters?: BaseFilters & { status?: string; from?: string; to?: string }) =>
+      [...queryKeys.emailLogs.lists(), filters] as const,
+  },
+
+  // Jobs
+  jobs: {
+    all: () => [...queryKeys.all(), 'jobs'] as const,
+    lists: () => [...queryKeys.jobs.all(), 'list'] as const,
+    list: (filters?: { status?: string; type?: string }) => [...queryKeys.jobs.lists(), filters] as const,
+    stats: () => [...queryKeys.jobs.all(), 'stats'] as const,
+  },
+
+  // User Activity Logs
+  userActivityLogs: {
+    all: () => [...queryKeys.all(), 'user-activity-logs'] as const,
+    lists: () => [...queryKeys.userActivityLogs.all(), 'list'] as const,
+    list: (filters?: { userId?: string; activity?: string; from?: string; to?: string }) =>
+      [...queryKeys.userActivityLogs.lists(), filters] as const,
+  },
+
+  // Pricing
+  pricing: {
+    all: () => [...queryKeys.all(), 'pricing'] as const,
+    products: () => [...queryKeys.pricing.all(), 'products'] as const,
+    product: (productId?: string, branchId?: string) => [...queryKeys.pricing.products(), productId, branchId] as const,
+    analytics: (branchId?: string) => [...queryKeys.pricing.all(), 'analytics', branchId] as const,
+  },
+
+  // Stock Adjustments
+  adjustments: {
+    all: () => [...queryKeys.all(), 'adjustments'] as const,
+    list: (filters?: BaseFilters & { movementType?: string }) => [...queryKeys.adjustments.all(), 'list', filters] as const,
+  },
+
+  // Tax Configuration
+  taxConfigs: {
+    all: () => [...queryKeys.all(), 'tax-configs'] as const,
+    list: () => [...queryKeys.taxConfigs.all(), 'list'] as const,
+  },
+
+  // System Settings
+  systemSettings: {
+    all: () => [...queryKeys.all(), 'system-settings'] as const,
+    detail: () => [...queryKeys.systemSettings.all(), 'detail'] as const,
+  },
+
+  // Payment Methods
+  paymentMethods: {
+    all: () => [...queryKeys.all(), 'payment-methods'] as const,
+    list: () => [...queryKeys.paymentMethods.all(), 'list'] as const,
+  },
+
+  // Dashboard
+  dashboard: {
+    all: () => [...queryKeys.all(), 'dashboard'] as const,
+    branch: (branchId?: string) => [...queryKeys.dashboard.all(), 'branch', branchId] as const,
+    hq: () => [...queryKeys.dashboard.all(), 'hq'] as const,
+    marketerSummary: () => [...queryKeys.dashboard.all(), 'marketer', 'summary'] as const,
+    marketerTransactions: () => [...queryKeys.dashboard.all(), 'marketer', 'transactions'] as const,
+  },
+  
+  // Reports
+  reports: {
+    all: () => [...queryKeys.all(), 'reports'] as const,
+    inventory: (filters: ReportFilters) => [...queryKeys.reports.all(), 'inventory', filters] as const,
+    sales: (filters: ReportFilters) => [...queryKeys.reports.all(), 'sales', filters] as const,
+    expiry: (filters: ReportFilters) => [...queryKeys.reports.all(), 'expiry', filters] as const,
+    transfer: (filters: ReportFilters) => [...queryKeys.reports.all(), 'transfer', filters] as const,
+    purchase: (filters: ReportFilters) => [...queryKeys.reports.all(), 'purchase', filters] as const,
+    customer: (filters: ReportFilters) => [...queryKeys.reports.all(), 'customer', filters] as const,
+  },
+  
+  // Audit Logs
+  auditLogs: {
+    all: () => [...queryKeys.all(), 'audit-logs'] as const,
+    lists: () => [...queryKeys.auditLogs.all(), 'list'] as const,
+    list: (filters?: BaseFilters & { action?: string; entity?: string; dateFrom?: string; dateTo?: string }) => 
+      [...queryKeys.auditLogs.lists(), filters] as const,
+  },
+  
+  // Batches
+  batches: {
+    all: () => [...queryKeys.all(), 'batches'] as const,
+    lists: () => [...queryKeys.batches.all(), 'list'] as const,
+    list: (filters?: BaseFilters & { productId?: string; expiring?: string | number | boolean }) => [...queryKeys.batches.lists(), filters] as const,
+    details: () => [...queryKeys.batches.all(), 'detail'] as const,
+    detail: (id: string) => [...queryKeys.batches.details(), id] as const,
+  },
+
+  // Cycle Counts
+  cycleCounts: {
+    all: () => [...queryKeys.all(), 'cycleCounts'] as const,
+    lists: () => [...queryKeys.cycleCounts.all(), 'list'] as const,
+    list: (filters?: { branchId?: string; status?: string }) =>
+      [...queryKeys.cycleCounts.lists(), filters] as const,
+    details: () => [...queryKeys.cycleCounts.all(), 'detail'] as const,
+    detail: (id: string) => [...queryKeys.cycleCounts.details(), id] as const,
+  },
+
+  // Finance Transactions
+  finance: {
+    all: () => [...queryKeys.all(), 'finance'] as const,
+    list: (filters?: { branchId?: string; type?: string }) => [...queryKeys.finance.all(), 'list', filters] as const,
+    summary: (branchId?: string) => [...queryKeys.finance.all(), 'summary', branchId] as const,
+  },
+
+  // Printers
+  printers: {
+    all: () => [...queryKeys.all(), 'printers'] as const,
+    list: (branchId?: string) => [...queryKeys.printers.all(), 'list', branchId] as const,
+  },
+
+  // Valuation
+  valuation: {
+    all: () => [...queryKeys.all(), 'valuation'] as const,
+    report: (branchId?: string, method?: string) => [...queryKeys.valuation.all(), branchId, method] as const,
+  },
+
+  // Marketer
+  marketer: {
+    all: () => [...queryKeys.all(), 'marketer'] as const,
+    assignments: (filters?: { branchId?: string; marketerId?: string; productId?: string; activeOnly?: boolean; status?: 'pending' | 'accepted' | 'rejected' }) =>
+      [...queryKeys.marketer.all(), 'assignments', filters] as const,
+    sales: (filters?: { branchId?: string; marketerId?: string; limit?: number }) =>
+      [...queryKeys.marketer.all(), 'sales', filters] as const,
+    summary: (filters?: { branchId?: string; marketerId?: string }) =>
+      [...queryKeys.marketer.all(), 'summary', filters] as const,
+  },
+};

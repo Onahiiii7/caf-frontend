@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-dark: #1a3a2e;
+  --color-primary-darker: #0d1f1a;
+  --color-accent-green: #00ff88;
+  --color-accent-light: #00e676;
+  --color-secondary-dark: #0a0f0d;
+  --color-card-light: #f5f5dc;
+  --color-card-white: #ffffff;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-primary-darker);
+    color: white;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Required for ML Kit barcode scanner: makes WebView background transparent
+     so the native camera preview shows through behind HTML overlay elements */
+  body.barcode-scan-active,
+  body.barcode-scan-active #root {
+    background: transparent !important;
+  }
+  
+  /* Scrollbar styling for dark theme */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: var(--color-primary-darker);
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: rgb(75 85 99);
+    border-radius: 3px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(107 114 128);
+  }
+}
+
+@layer components {
+  /* Card component utility for consistent styling */
+  .card {
+    @apply bg-primary-dark rounded-xl border border-gray-700;
+  }
+}

@@ -1,0 +1,10 @@
+export { POSPage } from './POSPage';
+export { ShiftLogsPage } from './ShiftLogsPage';
+export { ShiftReportPage } from './ShiftReportPage';
+export { ProcessReturnPage } from './ProcessReturnPage';
+export { PaymentPage } from './PaymentPage';
+export { ProductCatalogPage } from './ProductCatalogPage';
+export { TransactionHistoryPage } from './TransactionHistoryPage';
+export { CustomerLookupPage } from './CustomerLookupPage';
+export { DiscountsPage } from './DiscountsPage';
+export { ReceiptPage } from './ReceiptPage';

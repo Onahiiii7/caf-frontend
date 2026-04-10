@@ -395,7 +395,7 @@ export const ProductManagementPage = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-bold text-white tracking-tight">Products</h2>
+            <h2 className="text-2xl font-bold text-white tracking-tight">Products</h2>
             <p className="text-gray-400 mt-1">Manage product catalog and inventory</p>
           </div>
           <Button onClick={() => handleOpenModal()} className="shadow-lg shadow-accent-green/20">

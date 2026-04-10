@@ -9,6 +9,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Loading } from '../../components/ui/Loading';
 import { Error } from '../../components/ui/Error';
+import { useToast } from '../../hooks/useToast';
 import { useCurrency } from '../../hooks/useCurrency';
 import { queryKeys } from '../../lib/query-keys';
 import { buildApiUrl } from '../../lib/api-utils';
@@ -45,6 +46,7 @@ export const CustomerManagementPage = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const queryClient = useQueryClient();
   const { format } = useCurrency();
+  const { showSuccess, showError } = useToast();
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>();
 
@@ -66,7 +68,9 @@ export const CustomerManagementPage = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.customers.all(), exact: false });
       setIsModalOpen(false);
       reset();
+      showSuccess('Customer created');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to create customer'),
   });
 
   // Update customer mutation
@@ -80,7 +84,9 @@ export const CustomerManagementPage = () => {
       setIsModalOpen(false);
       setEditingCustomer(null);
       reset();
+      showSuccess('Customer updated');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to update customer'),
   });
 
   // Toggle customer status mutation
@@ -90,7 +96,9 @@ export const CustomerManagementPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.customers.all(), exact: false });
+      showSuccess('Customer status updated');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to update status'),
   });
 
   const handleOpenModal = (customer?: Customer) => {
@@ -208,7 +216,7 @@ export const CustomerManagementPage = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-bold text-white tracking-tight">Customers</h2>
+            <h2 className="text-2xl font-bold text-white tracking-tight">Customers</h2>
             <p className="text-gray-400 mt-1">Manage customer database and loyalty program</p>
           </div>
           <Button onClick={() => handleOpenModal()} className="shadow-lg shadow-accent-green/20">

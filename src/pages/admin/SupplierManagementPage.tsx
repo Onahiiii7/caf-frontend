@@ -9,6 +9,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Loading } from '../../components/ui/Loading';
 import { Error } from '../../components/ui/Error';
+import { useToast } from '../../hooks/useToast';
 import { queryKeys } from '../../lib/query-keys';
 
 interface Supplier {
@@ -36,6 +37,7 @@ export default function SupplierManagementPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const queryClient = useQueryClient();
+  const { showSuccess, showError } = useToast();
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<SupplierFormData>();
 
@@ -57,7 +59,9 @@ export default function SupplierManagementPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.suppliers.all(), exact: false });
       setIsModalOpen(false);
       reset();
+      showSuccess('Supplier created');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to create supplier'),
   });
 
   // Update supplier mutation
@@ -70,17 +74,21 @@ export default function SupplierManagementPage() {
       setIsModalOpen(false);
       setEditingSupplier(null);
       reset();
+      showSuccess('Supplier updated');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to update supplier'),
   });
 
-  // Toggle active status mutation
+  // Toggle supplier active mutation
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       return apiClient.patch(`/suppliers/${id}`, { isActive });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.suppliers.all(), exact: false });
+      showSuccess('Supplier status updated');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to update status'),
   });
 
   const handleOpenModal = (supplier?: Supplier) => {
@@ -142,8 +150,8 @@ export default function SupplierManagementPage() {
       key: 'isActive',
       header: 'Status',
       render: (supplier: Supplier) => (
-        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-          supplier.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+        <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
+          supplier.isActive ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'
         }`}>
           {supplier.isActive ? 'ACTIVE' : 'INACTIVE'}
         </span>

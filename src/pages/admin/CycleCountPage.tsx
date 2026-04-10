@@ -11,12 +11,13 @@ import { queryKeys } from '../../lib/query-keys';
 import { buildApiUrl } from '../../lib/api-utils';
 import { useToast } from '../../hooks/useToast';
 
-enum CycleCountStatus {
-  DRAFT = 'DRAFT',
-  SUBMITTED = 'SUBMITTED',
-  APPROVED = 'APPROVED',
-  CANCELLED = 'CANCELLED',
-}
+const CycleCountStatus = {
+  DRAFT: 'DRAFT',
+  SUBMITTED: 'SUBMITTED',
+  APPROVED: 'APPROVED',
+  CANCELLED: 'CANCELLED',
+} as const;
+type CycleCountStatus = typeof CycleCountStatus[keyof typeof CycleCountStatus];
 
 interface CycleCountLine {
   productId: { _id: string; name: string; sku: string } | string;
@@ -252,7 +253,7 @@ export function CycleCountPage() {
                 {activeDetail.status === CycleCountStatus.DRAFT && (
                   <>
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       onClick={() => cancelMutation.mutate(selectedCount._id)}
                       disabled={cancelMutation.isPending}
                     >
@@ -269,7 +270,7 @@ export function CycleCountPage() {
                 {activeDetail.status === CycleCountStatus.SUBMITTED && (
                   <>
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       onClick={() => cancelMutation.mutate(selectedCount._id)}
                       disabled={cancelMutation.isPending}
                     >

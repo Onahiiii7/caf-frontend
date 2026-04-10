@@ -9,6 +9,7 @@ import { Select } from '../../components/ui/Select';
 import { Modal } from '../../components/ui/Modal';
 import { Loading } from '../../components/ui/Loading';
 import { Error } from '../../components/ui/Error';
+import { useToast } from '../../hooks/useToast';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useBranchStore } from '../../stores/branch-store';
 import { queryKeys } from '../../lib/query-keys';
@@ -50,6 +51,7 @@ export const PricingManagementPage = () => {
   const queryClient = useQueryClient();
   const { format } = useCurrency();
   const { selectedBranch } = useBranchStore();
+  const { showSuccess, showError } = useToast();
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm<BulkPriceUpdate>();
 
@@ -110,7 +112,9 @@ export const PricingManagementPage = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.pricing.all(), exact: false });
       setIsBulkUpdateModalOpen(false);
       reset();
+      showSuccess('Prices updated successfully');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to update prices'),
   });
 
   // Sync batch prices mutation
@@ -123,7 +127,9 @@ export const PricingManagementPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.pricing.all(), exact: false });
+      showSuccess('Batch prices synced');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to sync prices'),
   });
 
   const handleBulkUpdate = (data: BulkPriceUpdate) => {

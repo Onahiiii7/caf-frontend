@@ -10,6 +10,7 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Loading } from '../../components/ui/Loading';
 import { Error } from '../../components/ui/Error';
+import { useToast } from '../../hooks/useToast';
 import { useBranchStore, getBranchId } from '../../stores/branch-store';
 import { useAuth } from '../../contexts/AuthContext';
 import { queryKeys } from '../../lib/query-keys';
@@ -85,6 +86,7 @@ export default function TransferManagementPage() {
   const { selectedBranch } = useBranchStore();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { showSuccess, showError } = useToast();
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<TransferFormData>();
 
@@ -151,7 +153,9 @@ export default function TransferManagementPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.batches.all(), exact: false });
       setIsCreateModalOpen(false);
       reset();
+      showSuccess('Transfer request created');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to create transfer'),
   });
 
   // Approve transfer mutation
@@ -168,7 +172,9 @@ export default function TransferManagementPage() {
       setIsApprovalModalOpen(false);
       setSelectedTransfer(null);
       setApprovalNotes('');
+      showSuccess('Transfer approved');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to approve transfer'),
   });
 
   // Reject transfer mutation
@@ -185,7 +191,9 @@ export default function TransferManagementPage() {
       setSelectedTransfer(null);
       setApprovalNotes('');
       setRejectionReason('');
+      showSuccess('Transfer rejected');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to reject transfer'),
   });
 
   const handleOpenCreateModal = () => {

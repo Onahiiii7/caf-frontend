@@ -243,10 +243,10 @@ export const UserManagementPage = () => {
       header: 'Status',
       render: (user: User) => (
         <span
-          className={`px-2 py-1 rounded text-xs ${
+          className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
             user.isActive
-              ? 'bg-green-600 text-white'
-              : 'bg-red-600 text-white'
+              ? 'bg-green-500/10 text-green-500 border border-green-500/20'
+              : 'bg-red-500/10 text-red-500 border border-red-500/20'
           }`}
         >
           {user.isActive ? 'Active' : 'Inactive'}

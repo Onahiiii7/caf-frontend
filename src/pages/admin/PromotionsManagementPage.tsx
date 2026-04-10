@@ -10,6 +10,7 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Loading } from '../../components/ui/Loading';
 import { Error } from '../../components/ui/Error';
+import { useToast } from '../../hooks/useToast';
 import { useCurrency } from '../../hooks/useCurrency';
 import { queryKeys } from '../../lib/query-keys';
 import { buildApiUrl } from '../../lib/api-utils';
@@ -55,6 +56,7 @@ export const PromotionsManagementPage = () => {
   } = useSearchWithDebounce('');
   const queryClient = useQueryClient();
   const { format } = useCurrency();
+  const { showSuccess, showError } = useToast();
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<PromotionFormData>();
 
@@ -78,7 +80,9 @@ export const PromotionsManagementPage = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.promotions.all(), exact: false });
       setIsModalOpen(false);
       reset();
+      showSuccess('Promotion created');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to create promotion'),
   });
 
   // Update promotion mutation
@@ -92,7 +96,9 @@ export const PromotionsManagementPage = () => {
       setIsModalOpen(false);
       setEditingPromotion(null);
       reset();
+      showSuccess('Promotion updated');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to update promotion'),
   });
 
   // Toggle promotion status mutation
@@ -102,7 +108,9 @@ export const PromotionsManagementPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.promotions.all(), exact: false });
+      showSuccess('Promotion status updated');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to update status'),
   });
 
   // Delete promotion mutation
@@ -112,7 +120,9 @@ export const PromotionsManagementPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.promotions.all(), exact: false });
+      showSuccess('Promotion deleted');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to delete promotion'),
   });
 
   const handleOpenModal = (promotion?: Promotion) => {

@@ -9,6 +9,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Loading } from '../../components/ui/Loading';
 import { Error } from '../../components/ui/Error';
+import { useToast } from '../../hooks/useToast';
 import { queryKeys } from '../../lib/query-keys';
 
 interface Branch {
@@ -46,6 +47,7 @@ export const BranchManagementPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const queryClient = useQueryClient();
+  const { showSuccess, showError } = useToast();
 
   const {
     register,
@@ -81,7 +83,9 @@ export const BranchManagementPage = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.branches.all(), exact: false });
       setIsModalOpen(false);
       reset();
+      showSuccess('Branch created');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to create branch'),
   });
 
   // Update branch mutation
@@ -104,7 +108,9 @@ export const BranchManagementPage = () => {
       setIsModalOpen(false);
       setEditingBranch(null);
       reset();
+      showSuccess('Branch updated');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to update branch'),
   });
 
   const handleOpenModal = (branch?: Branch) => {

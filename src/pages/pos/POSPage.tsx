@@ -67,6 +67,30 @@ export const POSPage = () => {
 
   const terminalId = 'TERMINAL-01';
 
+  // Get products
+  const { data: products, isLoading: loadingProducts } = useQuery({
+    queryKey: queryKeys.products.list({
+      branchId: getBranchId(selectedBranch),
+      search: searchQuery,
+      category: selectedCategory !== 'all' ? selectedCategory : undefined,
+    }),
+    queryFn: async () => {
+      const branchId = getBranchId(selectedBranch);
+      
+      if (!branchId) {
+        throw new Error('Branch ID is required');
+      }
+      
+      const params: Record<string, string> = { branchId };
+      if (searchQuery) params.search = searchQuery;
+      if (selectedCategory !== 'all') params.category = selectedCategory;
+      const response = await apiClient.get('/products', { params });
+      return response.data as Product[];
+    },
+    enabled: !!getBranchId(selectedBranch),
+    retry: false,
+  });
+
   // Handle a barcode value from the continuous scanner
   const handleBarcodeScan = useCallback(async (barcode: string) => {
     const branchId = getBranchId(selectedBranch);
@@ -183,30 +207,6 @@ export const POSPage = () => {
       return response.data as Shift;
     },
     enabled: !!getBranchId(selectedBranch) && !!user?.id,
-    retry: false,
-  });
-
-  // Get products
-  const { data: products, isLoading: loadingProducts } = useQuery({
-    queryKey: queryKeys.products.list({
-      branchId: getBranchId(selectedBranch),
-      search: searchQuery,
-      category: selectedCategory !== 'all' ? selectedCategory : undefined,
-    }),
-    queryFn: async () => {
-      const branchId = getBranchId(selectedBranch);
-      
-      if (!branchId) {
-        throw new Error('Branch ID is required');
-      }
-      
-      const params: Record<string, string> = { branchId };
-      if (searchQuery) params.search = searchQuery;
-      if (selectedCategory !== 'all') params.category = selectedCategory;
-      const response = await apiClient.get('/products', { params });
-      return response.data as Product[];
-    },
-    enabled: !!getBranchId(selectedBranch),
     retry: false,
   });
 

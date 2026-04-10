@@ -10,6 +10,7 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Loading } from '../../components/ui/Loading';
 import { Error } from '../../components/ui/Error';
+import { useToast } from '../../hooks/useToast';
 import { useBranchStore, getBranchId } from '../../stores/branch-store';
 import { useAuth } from '../../contexts/AuthContext';
 import { queryKeys } from '../../lib/query-keys';
@@ -80,6 +81,7 @@ export default function PurchaseOrderPage() {
   const { selectedBranch } = useBranchStore();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { showSuccess, showError } = useToast();
 
   const { register: registerCreate, handleSubmit: handleSubmitCreate, control: controlCreate, reset: resetCreate, formState: { errors: errorsCreate } } = useForm<POFormData>({
     defaultValues: {
@@ -143,7 +145,9 @@ export default function PurchaseOrderPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all(), exact: false });
       setIsCreateModalOpen(false);
       resetCreate();
+      showSuccess('Purchase order created');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to create purchase order'),
   });
 
   // Receive PO mutation
@@ -160,7 +164,9 @@ export default function PurchaseOrderPage() {
       setIsReceiveModalOpen(false);
       setSelectedPO(null);
       resetReceive();
+      showSuccess('Purchase order received');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to receive order'),
   });
 
   const handleOpenCreateModal = () => {

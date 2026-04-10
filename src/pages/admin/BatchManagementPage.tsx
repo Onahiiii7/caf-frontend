@@ -10,6 +10,7 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Loading } from '../../components/ui/Loading';
 import { Error } from '../../components/ui/Error';
+import { useToast } from '../../hooks/useToast';
 import { useBranchStore } from '../../stores/branch-store';
 import { queryKeys } from '../../lib/query-keys';
 
@@ -71,6 +72,7 @@ export const BatchManagementPage = () => {
   const [showExpiring, setShowExpiring] = useState(false);
   const queryClient = useQueryClient();
   const { selectedBranch } = useBranchStore();
+  const { showSuccess, showError } = useToast();
 
   const {
     register,
@@ -133,7 +135,9 @@ export const BatchManagementPage = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.batches.all(), exact: false });
       setIsModalOpen(false);
       reset();
+      showSuccess('Batch created');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to create batch'),
   });
 
   // Update batch mutation
@@ -148,7 +152,9 @@ export const BatchManagementPage = () => {
       setIsModalOpen(false);
       setEditingBatch(null);
       reset();
+      showSuccess('Batch updated');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to update batch'),
   });
 
   const handleOpenModal = (batch?: Batch) => {

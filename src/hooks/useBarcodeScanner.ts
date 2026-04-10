@@ -71,7 +71,7 @@ export function useBarcodeScanner() {
 
     await scanner.startScan();
 
-    listenerRef.current = await scanner.addListener('barcodeScanned', (event) => {
+    listenerRef.current = await scanner.addListener('barcodesScanned', (event: any) => {
       const value = event.barcode?.rawValue;
       if (value) onScan(value);
     });

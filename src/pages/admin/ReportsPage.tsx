@@ -83,7 +83,7 @@ export function ReportsPage() {
     <AdminLayout>
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-white">Reports & Analytics</h1>
+          <h1 className="text-2xl font-bold text-white">Reports & Analytics</h1>
           <p className="mt-2 text-gray-400">
             Access comprehensive reports and analytics for all business operations
           </p>

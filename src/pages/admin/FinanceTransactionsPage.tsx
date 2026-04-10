@@ -263,7 +263,7 @@ export function FinanceTransactionsPage() {
               error={errors.transactionDate?.message}
             />
             <div className="flex gap-3 justify-end pt-2">
-              <Button variant="outline" type="button" onClick={() => { setIsModalOpen(false); reset(); }}>
+              <Button variant="secondary" type="button" onClick={() => { setIsModalOpen(false); reset(); }}>
                 Cancel
               </Button>
               <Button type="submit" disabled={createMutation.isPending}>

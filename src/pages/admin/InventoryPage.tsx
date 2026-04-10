@@ -59,7 +59,7 @@ export function InventoryPage() {
     <AdminLayout>
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-white">Inventory Management</h1>
+          <h1 className="text-2xl font-bold text-white">Inventory Management</h1>
           <p className="mt-2 text-gray-400">
             Manage products, batches, stock levels, and inventory movements
           </p>

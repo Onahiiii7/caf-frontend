@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Loading } from '../../components/ui/Loading';
 import { Error } from '../../components/ui/Error';
+import { useToast } from '../../hooks/useToast';
 import { queryKeys } from '../../lib/query-keys';
 
 interface SystemSettings {
@@ -29,6 +30,7 @@ interface SystemSettings {
 export const SystemSettingsPage = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'general' | 'loyalty' | 'notifications'>('general');
+  const { showSuccess, showError } = useToast();
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<SystemSettings>();
 
@@ -55,7 +57,9 @@ export const SystemSettingsPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.systemSettings.all(), exact: false });
+      showSuccess('Settings saved');
     },
+    onError: (err: any) => showError(err?.response?.data?.message ?? 'Failed to save settings'),
   });
 
   const onSubmit = (data: SystemSettings) => {
@@ -69,18 +73,18 @@ export const SystemSettingsPage = () => {
     <AdminLayout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">System Settings</h1>
+          <h1 className="text-2xl font-bold text-white">System Settings</h1>
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-200">
+        <div className="border-b border-white/10">
           <nav className="-mb-px flex space-x-8">
             <button
               onClick={() => setActiveTab('general')}
               className={`${
                 activeTab === 'general'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-accent-green text-accent-green'
+                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-500'
               } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
             >
               General
@@ -89,8 +93,8 @@ export const SystemSettingsPage = () => {
               onClick={() => setActiveTab('loyalty')}
               className={`${
                 activeTab === 'loyalty'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-accent-green text-accent-green'
+                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-500'
               } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
             >
               Loyalty Program
@@ -99,8 +103,8 @@ export const SystemSettingsPage = () => {
               onClick={() => setActiveTab('notifications')}
               className={`${
                 activeTab === 'notifications'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-accent-green text-accent-green'
+                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-500'
               } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
             >
               Notifications
@@ -109,11 +113,11 @@ export const SystemSettingsPage = () => {
         </div>
 
         {/* Settings Form */}
-        <form onSubmit={handleSubmit(onSubmit)} className="bg-white p-6 rounded-lg shadow space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="bg-white/5 border border-white/10 p-6 rounded-lg space-y-6">
           {/* General Settings */}
           {activeTab === 'general' && (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900">General Settings</h2>
+              <h2 className="text-lg font-semibold text-white">General Settings</h2>
               
               <Input
                 label="Company Name"
@@ -193,13 +197,13 @@ export const SystemSettingsPage = () => {
               />
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Receipt Footer
                 </label>
                 <textarea
                   {...register('receiptFooter')}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 text-white rounded-md focus:outline-none focus:ring-accent-green focus:border-accent-green placeholder-gray-500"
                   placeholder="Thank you for your business!"
                 />
               </div>
@@ -209,16 +213,16 @@ export const SystemSettingsPage = () => {
           {/* Loyalty Settings */}
           {activeTab === 'loyalty' && (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900">Loyalty Program Settings</h2>
+              <h2 className="text-lg font-semibold text-white">Loyalty Program Settings</h2>
               
               <div className="flex items-center">
                 <input
                   type="checkbox"
                   id="enableLoyalty"
                   {...register('enableLoyalty')}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-accent-green focus:ring-accent-green border-gray-600 bg-white/5 rounded"
                 />
-                <label htmlFor="enableLoyalty" className="ml-2 block text-sm text-gray-900">
+                <label htmlFor="enableLoyalty" className="ml-2 block text-sm text-gray-300">
                   Enable Loyalty Program
                 </label>
               </div>
@@ -235,8 +239,8 @@ export const SystemSettingsPage = () => {
                 placeholder="e.g., 1 point per $1 spent"
               />
 
-              <div className="p-4 bg-blue-50 rounded-md">
-                <p className="text-sm text-blue-900">
+              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-md">
+                <p className="text-sm text-blue-300">
                   <strong>Note:</strong> When enabled, customers will earn loyalty points on every purchase.
                   The points rate determines how many points they earn per currency unit spent.
                 </p>
@@ -247,7 +251,7 @@ export const SystemSettingsPage = () => {
           {/* Notification Settings */}
           {activeTab === 'notifications' && (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900">Notification Settings</h2>
+              <h2 className="text-lg font-semibold text-white">Notification Settings</h2>
               
               <div className="space-y-3">
                 <div className="flex items-center">
@@ -255,9 +259,9 @@ export const SystemSettingsPage = () => {
                     type="checkbox"
                     id="enableEmailNotifications"
                     {...register('enableEmailNotifications')}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-accent-green focus:ring-accent-green border-gray-600 bg-white/5 rounded"
                   />
-                  <label htmlFor="enableEmailNotifications" className="ml-2 block text-sm text-gray-900">
+                  <label htmlFor="enableEmailNotifications" className="ml-2 block text-sm text-gray-300">
                     Enable Email Notifications
                   </label>
                 </div>
@@ -267,16 +271,16 @@ export const SystemSettingsPage = () => {
                     type="checkbox"
                     id="enableSMSNotifications"
                     {...register('enableSMSNotifications')}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-accent-green focus:ring-accent-green border-gray-600 bg-white/5 rounded"
                   />
-                  <label htmlFor="enableSMSNotifications" className="ml-2 block text-sm text-gray-900">
+                  <label htmlFor="enableSMSNotifications" className="ml-2 block text-sm text-gray-300">
                     Enable SMS Notifications
                   </label>
                 </div>
               </div>
 
-              <div className="p-4 bg-yellow-50 rounded-md">
-                <p className="text-sm text-yellow-900">
+              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
+                <p className="text-sm text-yellow-300">
                   <strong>Note:</strong> Notifications will be sent for important events like low stock alerts,
                   expiry reminders, and order confirmations.
                 </p>
@@ -285,7 +289,7 @@ export const SystemSettingsPage = () => {
           )}
 
           {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 pt-4 border-t">
+          <div className="flex justify-end space-x-3 pt-4 border-t border-white/10">
             <Button
               type="button"
               variant="secondary"
@@ -305,8 +309,8 @@ export const SystemSettingsPage = () => {
             <Error message="Failed to save settings. Please try again." />
           )}
           {updateMutation.isSuccess && (
-            <div className="p-4 bg-green-50 rounded-md">
-              <p className="text-sm text-green-900">Settings saved successfully!</p>
+            <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-md">
+              <p className="text-sm text-green-300">Settings saved successfully!</p>
             </div>
           )}
         </form>

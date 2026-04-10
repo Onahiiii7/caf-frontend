@@ -53,7 +53,6 @@ export function ValuationReportPage() {
       return response.data as ValuationReport;
     },
     enabled: isSuperAdmin ? (showAllBranches || !!branchId) : !!branchId,
-    onError: () => showError('Failed to load valuation report'),
   });
 
   const exportCsv = () => {
@@ -112,7 +111,7 @@ export function ValuationReportPage() {
                 </button>
               ))}
             </div>
-            <Button variant="outline" onClick={exportCsv} disabled={!data?.products?.length}>
+            <Button variant="secondary" onClick={exportCsv} disabled={!data?.products?.length}>
               Export CSV
             </Button>
           </div>

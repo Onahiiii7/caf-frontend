@@ -110,10 +110,15 @@ jobs:
 
       # ── Capgo live update (optional) ──────────────────────────────────────
       - name: Publish web bundle to Capgo
-        if: github.event.inputs.upload_to_capgo == 'true' && secrets.CAPGO_TOKEN != ''
+        if: github.event.inputs.upload_to_capgo == 'true'
         env:
           CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}
-        run: npx @capgo/cli bundle upload --channel production --path dist --apikey "$CAPGO_TOKEN"
+        run: |
+          if [ -z "$CAPGO_TOKEN" ]; then
+            echo "CAPGO_TOKEN secret not set, skipping Capgo publish."
+            exit 0
+          fi
+          npx @capgo/cli bundle upload --channel production --path dist --apikey "$CAPGO_TOKEN"
 
       # ── Cleanup secrets ────────────────────────────────────────────────────
       - name: Remove keystore from runner

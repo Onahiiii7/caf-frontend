@@ -32,3 +32,9 @@ dist-ssr
 android/keystore.properties
 android/*.jks
 android/*.keystore
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
+    "preview": "pnpm run build && wrangler dev",
     "cap:sync": "pnpm run build && pnpm exec cap sync",
     "cap:android": "pnpm run build && pnpm exec cap sync android",
     "cap:open:android": "pnpm exec cap open android",
@@ -16,15 +16,16 @@
     "android:apk": "pnpm run android:sync && .\\android\\gradlew.bat -p android assembleRelease",
     "android:clean": ".\\android\\gradlew.bat -p android clean",
     "live:update:build": "pnpm run build",
-    "live:update:sync": "pnpm run build && pnpm exec cap sync"
+    "live:update:sync": "pnpm run build && pnpm exec cap sync",
+    "deploy": "pnpm run build && wrangler deploy"
   },
   "dependencies": {
-    "@capgo/capacitor-updater": "^7.0.0",
     "@aparajita/capacitor-biometric-auth": "^10.0.0",
     "@capacitor-mlkit/barcode-scanning": "^8.0.1",
     "@capacitor/android": "^8.3.0",
     "@capacitor/core": "^8.3.0",
     "@capacitor/preferences": "^8.0.1",
+    "@capgo/capacitor-updater": "^7.0.0",
     "@tanstack/react-query": "^5.90.12",
     "axios": "^1.13.2",
     "dexie": "^4.2.1",
@@ -38,6 +39,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.3.0",
+    "@cloudflare/vite-plugin": "^1.33.2",
     "@eslint/js": "^9.39.1",
     "@tailwindcss/postcss": "^4.1.17",
     "@types/node": "^24.10.1",
@@ -53,6 +55,7 @@
     "tailwindcss": "^4.1.17",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "wrangler": "^4.85.0"
   }
 }

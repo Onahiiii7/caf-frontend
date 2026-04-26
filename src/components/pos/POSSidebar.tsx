@@ -155,7 +155,7 @@ export const POSSidebar = () => {
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-white font-bold text-base truncate">POS Terminal</h2>
+              <h2 className="text-white font-bold text-base truncate">CAREFARM POS</h2>
               <p className="text-xs text-gray-400 truncate">{selectedBranch?.name}</p>
             </div>
           </div>

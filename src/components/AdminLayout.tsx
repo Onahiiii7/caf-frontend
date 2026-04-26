@@ -171,7 +171,7 @@ export const AdminLayout = ({ children, title = 'Admin' }: AdminLayoutProps) => 
       <OfflineNotification />
       <aside className="hidden lg:flex w-64 bg-primary-dark border-r border-gray-800 flex-col">
         <div className="p-6 border-b border-gray-800">
-          <h1 className="text-2xl font-bold text-white">Pharmacy POS</h1>
+          <h1 className="text-2xl font-bold text-white">CAREFARM POS</h1>
           {selectedBranch ? (
             <p className="text-sm text-gray-400 mt-1">{selectedBranch.name}</p>
           ) : null}
@@ -220,7 +220,7 @@ export const AdminLayout = ({ children, title = 'Admin' }: AdminLayoutProps) => 
       >
         <div className="p-5 border-b border-gray-800 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-white">Pharmacy POS</h1>
+            <h1 className="text-xl font-bold text-white">CAREFARM POS</h1>
             {selectedBranch ? (
               <p className="text-xs text-gray-400 mt-1">{selectedBranch.name}</p>
             ) : null}

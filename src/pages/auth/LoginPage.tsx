@@ -111,7 +111,7 @@ export const LoginPage = () => {
     <div className="min-h-screen flex items-center justify-center bg-primary-darker">
       <div className="max-w-md w-full p-8 bg-primary-dark rounded-lg shadow-xl">
         <h1 className="text-3xl font-bold text-white mb-2 text-center">
-          Pharmacy POS
+          CAREFARM POS
         </h1>
         <p className="text-gray-400 text-center mb-8">
           Sign in to your account

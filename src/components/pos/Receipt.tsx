@@ -42,7 +42,7 @@ export const Receipt = forwardRef<HTMLDivElement, ReceiptProps>(
         {/* Header */}
         <div className="text-center mb-6 border-b-2 border-black pb-4">
           <h1 className="text-2xl font-bold mb-2">
-            {saleData.branchName || 'Pharmacy POS'}
+            {saleData.branchName || 'CAREFARM POS'}
           </h1>
           {saleData.branchAddress && (
             <p className="text-sm">{saleData.branchAddress}</p>

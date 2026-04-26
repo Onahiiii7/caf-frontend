@@ -7,10 +7,9 @@ import { Table } from '../../components/ui/Table';
 import { Loading } from '../../components/ui/Loading';
 import { Error } from '../../components/ui/Error';
 import { useBranchStore, getBranchId } from '../../stores/branch-store';
-import { buildApiUrl } from '../../lib/api-utils';
-import { useToast } from '../../hooks/useToast';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useAuthStore } from '../../stores/auth-store';
+import { queryKeys } from '../../lib/query-keys';
 
 const METHODS = ['FIFO', 'LIFO', 'AVERAGE'] as const;
 type ValuationMethod = typeof METHODS[number];
@@ -36,20 +35,22 @@ export function ValuationReportPage() {
   const [showAllBranches, setShowAllBranches] = useState(false);
   const { selectedBranch } = useBranchStore();
   const { user } = useAuthStore();
-  const { showError } = useToast();
   const { format } = useCurrency();
 
   const isSuperAdmin = user?.role === 'super_admin';
   const branchId = getBranchId(selectedBranch);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['valuation', branchId, method, showAllBranches],
+    queryKey: queryKeys.valuation.report(
+      isSuperAdmin && showAllBranches ? undefined : branchId,
+      `${method}:${showAllBranches}`,
+    ),
     queryFn: async () => {
       const params: Record<string, string> = { method };
       if (!isSuperAdmin || !showAllBranches) {
         params.branchId = branchId!;
       }
-      const response = await apiClient.get(buildApiUrl('/reports/valuation'), { params });
+      const response = await apiClient.get('/reports/valuation', { params });
       return response.data as ValuationReport;
     },
     enabled: isSuperAdmin ? (showAllBranches || !!branchId) : !!branchId,

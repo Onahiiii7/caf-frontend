@@ -9,8 +9,10 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Loading } from '../../components/ui/Loading';
 import { Error } from '../../components/ui/Error';
+import { Pagination } from '../../components/ui/Pagination';
 import { useToast } from '../../hooks/useToast';
 import { useCurrency } from '../../hooks/useCurrency';
+import { usePagination } from '../../hooks/usePagination';
 import { queryKeys } from '../../lib/query-keys';
 import { buildApiUrl } from '../../lib/api-utils';
 import { useSearchWithDebounce } from '../../hooks/useSearchWithDebounce';
@@ -47,17 +49,25 @@ export const CustomerManagementPage = () => {
   const queryClient = useQueryClient();
   const { format } = useCurrency();
   const { showSuccess, showError } = useToast();
+  const pagination = usePagination({ initialLimit: 20 });
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>();
 
   // Fetch customers
-  const { data: customers, isLoading, error } = useQuery({
-    queryKey: queryKeys.customers.list({ search: debouncedSearchQuery }),
+  const { data: customersData, isLoading, error } = useQuery({
+    queryKey: queryKeys.customers.list({ search: debouncedSearchQuery, page: pagination.state.page, limit: pagination.state.limit }),
     queryFn: async () => {
-      const response = await apiClient.get(buildApiUrl('/customers', { search: debouncedSearchQuery }));
-      return response.data as Customer[];
+      const response = await apiClient.get(buildApiUrl('/customers', {
+        search: debouncedSearchQuery,
+        page: pagination.state.page,
+        limit: pagination.state.limit,
+      }));
+      return response.data;
     },
   });
+
+  const customers = customersData?.data as Customer[] | undefined;
+  const totalCount = customersData?.count ?? 0;
 
   // Create customer mutation
   const createMutation = useMutation({
@@ -241,6 +251,20 @@ export const CustomerManagementPage = () => {
             columns={columns}
             emptyMessage="No customers found"
           />
+          {totalCount > 0 && (
+            <Pagination
+              meta={{
+                page: pagination.state.page,
+                limit: pagination.state.limit,
+                total: totalCount,
+                pages: Math.ceil(totalCount / pagination.state.limit),
+                hasNext: pagination.state.page < Math.ceil(totalCount / pagination.state.limit),
+                hasPrev: pagination.state.page > 1,
+              }}
+              onPageChange={pagination.setPage}
+              onLimitChange={pagination.setLimit}
+            />
+          )}
         </div>
 
         {/* Customer Form Modal */}

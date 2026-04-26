@@ -6,8 +6,12 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Table } from '../../components/ui/Table';
+import { Pagination } from '../../components/ui/Pagination';
 import { queryKeys } from '../../lib/query-keys';
 import { useCurrency } from '../../hooks/useCurrency';
+import { usePagination } from '../../hooks/usePagination';
+import { useToast } from '../../hooks/useToast';
+import { getErrorMessage } from '../../lib/error-utils';
 
 interface Assignment {
   _id: string;
@@ -38,6 +42,8 @@ interface SalesResponse {
 export const MarketerSalesPage = () => {
   const { format } = useCurrency();
   const queryClient = useQueryClient();
+  const { showSuccess, showError } = useToast();
+  const pagination = usePagination({ initialLimit: 20 });
 
   const [assignmentId, setAssignmentId] = useState('');
   const [quantity, setQuantity] = useState('1');
@@ -56,9 +62,11 @@ export const MarketerSalesPage = () => {
   });
 
   const { data: salesData, isLoading } = useQuery<SalesResponse>({
-    queryKey: queryKeys.marketer.sales({ limit: 20 }),
+    queryKey: queryKeys.marketer.sales({ page: pagination.state.page, limit: pagination.state.limit }),
     queryFn: async () => {
-      const response = await apiClient.get('/marketer/sales', { params: { limit: 20 } });
+      const response = await apiClient.get('/marketer/sales', {
+        params: { page: pagination.state.page, limit: pagination.state.limit },
+      });
       return response.data as SalesResponse;
     },
   });
@@ -80,11 +88,15 @@ export const MarketerSalesPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.marketer.all(), exact: false });
+      showSuccess('Sale recorded successfully');
       setAssignmentId('');
       setQuantity('1');
       setCustomerName('');
       setCustomerPhone('');
       setNotes('');
+    },
+    onError: (error) => {
+      showError(getErrorMessage(error, 'Failed to record sale'));
     },
   });
 
@@ -169,6 +181,20 @@ export const MarketerSalesPage = () => {
             isLoading={isLoading}
             emptyMessage="No sales recorded yet"
           />
+          {salesData?.count && salesData.count > 0 && (
+            <Pagination
+              meta={{
+                page: pagination.state.page,
+                limit: pagination.state.limit,
+                total: salesData.count,
+                pages: Math.ceil(salesData.count / pagination.state.limit),
+                hasNext: pagination.state.page < Math.ceil(salesData.count / pagination.state.limit),
+                hasPrev: pagination.state.page > 1,
+              }}
+              onPageChange={pagination.setPage}
+              onLimitChange={pagination.setLimit}
+            />
+          )}
         </div>
       </div>
     </MarketerLayout>

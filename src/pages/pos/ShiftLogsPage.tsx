@@ -54,7 +54,7 @@ export const ShiftLogsPage = () => {
       const response = await apiClient.get('/shifts/current', {
         params: { branchId, cashierId },
       });
-      return response.data as Shift;
+      return response.data.data as Shift;
     },
     enabled: !!getBranchId(selectedBranch) && !!user?.id,
     retry: false,
@@ -72,7 +72,7 @@ export const ShiftLogsPage = () => {
       const response = await apiClient.get('/shifts', {
         params: { branchId, limit: '10' },
       });
-      return response.data as Shift[];
+      return response.data.data as Shift[];
     },
     enabled: !!getBranchId(selectedBranch),
     retry: false,
@@ -86,7 +86,7 @@ export const ShiftLogsPage = () => {
         `/shifts/${currentShift._id}/close`,
         data
       );
-      return response.data;
+      return response.data.data as Shift;
     },
     onSuccess: () => {
       showSuccess('Shift closed successfully');

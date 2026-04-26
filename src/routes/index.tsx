@@ -279,7 +279,7 @@ export const router = createBrowserRouter([
   {
     path: '/admin/expenses',
     element: (
-      <ProtectedRoute allowedRoles={['super_admin', 'branch_manager', 'cashier', 'pharmacist', 'auditor']}>
+      <ProtectedRoute allowedRoles={['super_admin', 'branch_manager', 'cashier', 'pharmacist']}>
         <ExpensesPage />
       </ProtectedRoute>
     ),
@@ -287,7 +287,7 @@ export const router = createBrowserRouter([
   {
     path: '/admin/finance',
     element: (
-      <ProtectedRoute allowedRoles={['super_admin', 'branch_manager', 'auditor']}>
+      <ProtectedRoute allowedRoles={['super_admin', 'branch_manager', 'marketer', 'auditor']}>
         <FinanceTransactionsPage />
       </ProtectedRoute>
     ),
@@ -379,7 +379,7 @@ export const router = createBrowserRouter([
   {
     path: '/admin/purchase-orders',
     element: (
-      <ProtectedRoute allowedRoles={['super_admin', 'branch_manager', 'pharmacist']}>
+      <ProtectedRoute allowedRoles={['super_admin', 'branch_manager']}>
         <PurchaseOrderPage />
       </ProtectedRoute>
     ),

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import apiClient from '../../lib/api-client';
 import { AdminLayout } from '../../components/AdminLayout';
@@ -13,12 +13,12 @@ import { Error as ErrorDisplay } from '../../components/ui/Error';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useBranchStore, getBranchId } from '../../stores/branch-store';
-import { useToast } from '../../hooks/useToast';
-import { getErrorMessage } from '../../lib/error-utils';
 import { queryKeys } from '../../lib/query-keys';
 import { buildApiUrl } from '../../lib/api-utils';
 import { useSearchWithDebounce } from '../../hooks/useSearchWithDebounce';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
+import { usePagination } from '../../hooks/usePagination';
+import { useBranchAwareCRUDMutations } from '../../hooks/useCRUDMutations';
 
 interface Product {
   _id: string;
@@ -36,31 +36,34 @@ interface Product {
   requiresPrescription: boolean;
   isControlled: boolean;
   isActive: boolean;
+  maxStockLevel?: number;
   createdAt: string;
   updatedAt: string;
 }
 
 interface ProductFormData {
-  name: string;
-  sku: string;
-  barcode: string;
-  category: string;
-  brand: string;
-  unit: string;
-  initialStock: number;
-  initialLotNumber?: string;
-  initialExpiryDate?: string;
-  initialSupplierId?: string;
-  initialPurchasePrice?: number;
-  initialSellingPrice?: number;
-  basePrice: number;
-  costPrice: number;
-  suggestedRetailPrice: number;
-  markupPercentage: number;
-  requiresPrescription: boolean;
-  isControlled: boolean;
-  branchId: string;
-}
+   name: string;
+   sku: string;
+   barcode: string;
+   category: string;
+   brand: string;
+   unit: string;
+   initialStock: number;
+   initialLotNumber?: string;
+   initialExpiryDate?: string;
+   initialSupplierId?: string;
+   initialPurchasePrice?: number;
+   initialSellingPrice?: number;
+   basePrice: number;
+   costPrice: number;
+   suggestedRetailPrice: number;
+   markupPercentage: number;
+   requiresPrescription: boolean;
+   isControlled: boolean;
+   branchId: string;
+   reorderLevel: number;
+   maxStockLevel?: number;
+ }
 
 interface Branch {
   _id: string;
@@ -83,10 +86,28 @@ export const ProductManagementPage = () => {
     setValue: setSearchQuery,
     debouncedValue: debouncedSearchQuery,
   } = useSearchWithDebounce('');
+
+  const pagination = usePagination({ initialLimit: 20 });
   const queryClient = useQueryClient();
   const { format } = useCurrency();
   const selectedBranch = useBranchStore((state) => state.selectedBranch);
-  const { showSuccess, showError } = useToast();
+  const branchId = getBranchId(selectedBranch);
+
+  const { createMutation, updateMutation } = useBranchAwareCRUDMutations<Product>(
+    'products',
+    queryKeys.products.all(),
+    branchId || '',
+    {
+      resourceLabel: 'Product',
+      onCreateSuccess: () => {
+        setIsModalOpen(false);
+      },
+      onUpdateSuccess: () => {
+        setIsModalOpen(false);
+        setEditingProduct(null);
+      },
+    }
+  );
 
   // WebSocket integration for real-time inventory updates
   useWebSocket({
@@ -133,103 +154,87 @@ export const ProductManagementPage = () => {
   });
 
   // Fetch products for selected branch
-  const { data: products, isLoading, error } = useQuery({
+  const { data: productsResponse, isLoading, error } = useQuery({
     queryKey: queryKeys.products.list({
-      branchId: getBranchId(selectedBranch),
+      branchId: branchId,
       search: debouncedSearchQuery,
+      ...pagination.state,
     }),
     queryFn: async () => {
-      const branchId = getBranchId(selectedBranch);
-      if (!branchId) return [];
+      if (!branchId) return null;
 
       const url = buildApiUrl('/products', {
         branchId,
         search: debouncedSearchQuery,
+        ...pagination.state,
       });
       const response = await apiClient.get(url);
-      return response.data as Product[];
+      return response.data;
     },
-    enabled: !!getBranchId(selectedBranch),
+    enabled: !!branchId,
   });
+
+  const products = productsResponse?.data || [];
+  const paginationMeta = productsResponse?.pagination;
 
   // Create product mutation
-  const createMutation = useMutation({
-    mutationFn: async (data: ProductFormData) => {
-      if (!data.branchId) {
-        throw new Error('Please select a branch');
-      }
+  const handleCreateProduct = (data: ProductFormData) => {
+    if (!data.branchId) {
+      throw new Error('Please select a branch');
+    }
 
-      const payload: Record<string, unknown> = {
-        name: data.name,
-        sku: data.sku,
-        barcode: data.barcode,
-        category: data.category,
-        brand: data.brand,
-        unit: data.unit,
-        reorderLevel: 0,
-        basePrice: data.basePrice,
-        costPrice: data.costPrice,
-        suggestedRetailPrice: data.suggestedRetailPrice,
-        markupPercentage: data.markupPercentage,
-        requiresPrescription: data.requiresPrescription,
-        isControlled: data.isControlled,
-        branchId: data.branchId,
-      };
+    const payload = {
+      name: data.name,
+      sku: data.sku,
+      barcode: data.barcode,
+      category: data.category,
+      brand: data.brand,
+      unit: data.unit,
+      reorderLevel: data.reorderLevel,
+      basePrice: data.basePrice,
+      costPrice: data.costPrice,
+      suggestedRetailPrice: data.suggestedRetailPrice,
+      markupPercentage: data.markupPercentage,
+      requiresPrescription: data.requiresPrescription,
+      isControlled: data.isControlled,
+      branchId: data.branchId,
+      // Initial stock fields are optional in DTO, always include them if provided
+      initialStock: data.initialStock,
+      initialLotNumber: data.initialLotNumber,
+      initialExpiryDate: data.initialExpiryDate,
+      initialSupplierId: data.initialSupplierId,
+      initialPurchasePrice: data.initialPurchasePrice,
+      initialSellingPrice: data.initialSellingPrice,
+      // maxStockLevel is optional in DTO
+      maxStockLevel: data.maxStockLevel,
+      // Server-generated fields - provide defaults for create
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
 
-      if (data.initialStock > 0) {
-        payload.initialStock = data.initialStock;
-        payload.initialLotNumber = data.initialLotNumber;
-        payload.initialExpiryDate = data.initialExpiryDate;
-        payload.initialSupplierId = data.initialSupplierId;
-        payload.initialPurchasePrice = data.initialPurchasePrice || data.costPrice;
-        payload.initialSellingPrice =
-          data.initialSellingPrice || data.suggestedRetailPrice || data.basePrice;
-      }
-
-      return apiClient.post('/products', payload);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.products.all(), exact: false });
-      setIsModalOpen(false);
-      reset();
-      showSuccess('Product created successfully');
-    },
-    onError: (error) => {
-      showError(getErrorMessage(error, 'Failed to create product'));
-    },
-  });
+    createMutation.mutate(payload);
+  };
 
   // Update product mutation
-  const updateMutation = useMutation({
-    mutationFn: async (data: ProductFormData) => {
-      if (!editingProduct) return;
+  const handleUpdateProduct = (data: ProductFormData) => {
+    if (!editingProduct) return;
 
-      const payload = {
-        name: data.name,
-        category: data.category,
-        brand: data.brand,
-        unit: data.unit,
-        basePrice: data.basePrice,
-        costPrice: data.costPrice,
-        suggestedRetailPrice: data.suggestedRetailPrice,
-        markupPercentage: data.markupPercentage,
-        requiresPrescription: data.requiresPrescription,
-        isControlled: data.isControlled,
-      };
+    const payload = {
+      name: data.name,
+      category: data.category,
+      brand: data.brand,
+      unit: data.unit,
+      basePrice: data.basePrice,
+      costPrice: data.costPrice,
+      suggestedRetailPrice: data.suggestedRetailPrice,
+      markupPercentage: data.markupPercentage,
+      requiresPrescription: data.requiresPrescription,
+      isControlled: data.isControlled,
+    };
 
-      return apiClient.patch(`/products/${editingProduct._id}`, payload);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.products.all(), exact: false });
-      setIsModalOpen(false);
-      setEditingProduct(null);
-      reset();
-      showSuccess('Product updated successfully');
-    },
-    onError: (error) => {
-      showError(getErrorMessage(error, 'Failed to update product'));
-    },
-  });
+    updateMutation.mutate({ id: editingProduct._id, data: payload });
+  };
 
   const handleOpenModal = (product?: Product) => {
     setWizardStep(1);
@@ -254,6 +259,8 @@ export const ProductManagementPage = () => {
         markupPercentage: product.markupPercentage || 0,
         requiresPrescription: product.requiresPrescription,
         isControlled: product.isControlled,
+        reorderLevel: product.reorderLevel || 0,
+        maxStockLevel: product.maxStockLevel || undefined,
         branchId: '', // Branch can't be changed when editing
       });
     } else {
@@ -312,9 +319,9 @@ export const ProductManagementPage = () => {
 
   const onSubmit = (data: ProductFormData) => {
     if (editingProduct) {
-      updateMutation.mutate(data);
+      handleUpdateProduct(data);
     } else {
-      createMutation.mutate(data);
+      handleCreateProduct(data);
     }
   };
 
@@ -416,8 +423,23 @@ export const ProductManagementPage = () => {
         {/* Products Table */}
         <div className="rounded-2xl overflow-hidden border border-white/5 shadow-xl">
           <Table
-            data={products || []}
+            data={products}
             columns={columns}
+            isLoading={isLoading}
+            pagination={paginationMeta}
+            onPageChange={pagination.setPage}
+            onLimitChange={pagination.setLimit}
+            onSort={(key) => {
+              if (pagination.state.sortBy === key) {
+                pagination.toggleSortOrder();
+              } else {
+                pagination.setSort(key, 'asc');
+              }
+            }}
+            currentSort={{
+              key: pagination.state.sortBy || '',
+              order: pagination.state.sortOrder || 'asc',
+            }}
             emptyMessage="No products found"
           />
         </div>
@@ -610,6 +632,29 @@ export const ProductManagementPage = () => {
                       max: { value: 1000, message: 'Maximum 1000%' },
                     })}
                     error={errors.markupPercentage?.message}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Input
+                    label="Reorder Level"
+                    type="number"
+                    min="0"
+                    {...register('reorderLevel', {
+                      required: 'Reorder level is required',
+                      min: { value: 0, message: 'Must be 0 or greater' },
+                    })}
+                    error={errors.reorderLevel?.message}
+                  />
+
+                  <Input
+                    label="Maximum Stock Level (Optional)"
+                    type="number"
+                    min="0"
+                    {...register('maxStockLevel', {
+                      min: { value: 0, message: 'Must be 0 or greater' },
+                    })}
+                    error={errors.maxStockLevel?.message}
                   />
                 </div>
 

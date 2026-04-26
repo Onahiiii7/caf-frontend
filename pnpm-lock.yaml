@@ -23,6 +23,9 @@ importers:
       '@capacitor/preferences':
         specifier: ^8.0.1
         version: 8.0.1(@capacitor/core@8.3.0)
+      '@capgo/capacitor-updater':
+        specifier: ^7.0.0
+        version: 7.43.3(@capacitor/core@8.3.0)
       '@tanstack/react-query':
         specifier: ^5.90.12
         version: 5.90.12(react@19.2.1)
@@ -231,6 +234,11 @@ packages:
     resolution: {integrity: sha512-T6no3ebi79XJCk91U3Jp/liJUwgBdvHR+s6vhvPkPxSuch7z3zx5Rv1bdWM6sWruNx+pViuEGqZvbfCdyBvcHQ==}
     peerDependencies:
       '@capacitor/core': '>=8.0.0'
+
+  '@capgo/capacitor-updater@7.43.3':
+    resolution: {integrity: sha512-vKBDRwqnQv500rlaBPhlVJGDR/J6qiOS/YRQQLJkRNg803ZnSmAw+YHZckNfRkt2Bpplt4SK6Glf860DEgSadg==}
+    peerDependencies:
+      '@capacitor/core': '>=7.0.0'
 
   '@esbuild/aix-ppc64@0.25.12':
     resolution: {integrity: sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==}
@@ -2023,6 +2031,10 @@ snapshots:
       '@capacitor/core': 8.3.0
 
   '@capacitor/preferences@8.0.1(@capacitor/core@8.3.0)':
+    dependencies:
+      '@capacitor/core': 8.3.0
+
+  '@capgo/capacitor-updater@7.43.3(@capacitor/core@8.3.0)':
     dependencies:
       '@capacitor/core': 8.3.0
 

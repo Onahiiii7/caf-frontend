@@ -90,7 +90,7 @@ export const MarketerAssignmentsPage = () => {
     queryKey: queryKeys.products.list({ branchId }),
     queryFn: async () => {
       const response = await apiClient.get('/products', { params: { branchId } });
-      return response.data as Product[];
+      return response.data.data as Product[];
     },
     enabled: !!branchId,
   });

@@ -102,8 +102,8 @@ export const BatchManagementPage = () => {
   const { data: products } = useQuery({
     queryKey: queryKeys.products.list(),
     queryFn: async () => {
-      const response = await apiClient.get<Product[]>('/products');
-      return response.data;
+      const response = await apiClient.get('/products');
+      return response.data.data as Product[];
     },
   });
 

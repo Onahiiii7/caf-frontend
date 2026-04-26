@@ -51,7 +51,7 @@ export const PaymentPage = () => {
       const response = await apiClient.get('/shifts/current', {
         params: { branchId, cashierId, terminalId },
       });
-      return response.data as Shift;
+      return response.data.data as Shift;
     },
     enabled: !!getBranchId(selectedBranch) && !!user?.id,
     retry: false,

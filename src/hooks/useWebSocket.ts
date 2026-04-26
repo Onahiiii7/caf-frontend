@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '../stores/auth-store';
 import { useBranchStore } from '../stores/branch-store';
+import { SyncService } from '../services/sync-service';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000/inventory';
 
 interface InventoryUpdate {
   batchId: string;
@@ -41,11 +42,16 @@ interface UseWebSocketOptions {
 
 export const useWebSocket = (options: UseWebSocketOptions = {}) => {
   const socketRef = useRef<Socket | null>(null);
+  const optionsRef = useRef(options);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   
   const { accessToken, isAuthenticated } = useAuthStore();
   const { selectedBranch } = useBranchStore();
+
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
 
   useEffect(() => {
     // Only connect if authenticated
@@ -72,37 +78,42 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
       console.log('WebSocket connected');
       setIsConnected(true);
       setConnectionError(null);
-      
+
+      // Trigger offline sync upon reconnection
+      SyncService.processQueue().catch(err =>
+        console.error('[WebSocket] Offline sync failed:', err)
+      );
+
       // Join branch-specific room if branch is selected
       if (selectedBranch) {
         socket.emit('join-branch', selectedBranch._id);
       }
-      
-      options.onConnect?.();
+
+      optionsRef.current.onConnect?.();
     });
 
     socket.on('disconnect', (reason) => {
       console.log('WebSocket disconnected:', reason);
       setIsConnected(false);
-      options.onDisconnect?.();
+      optionsRef.current.onDisconnect?.();
     });
 
     socket.on('connect_error', (error) => {
       console.error('WebSocket connection error:', error);
       setConnectionError(error.message);
-      options.onError?.(error);
+      optionsRef.current.onError?.(error);
     });
 
     // Inventory update handler
     socket.on('inventory:update', (update: InventoryUpdate) => {
       console.log('Received inventory update:', update);
-      options.onInventoryUpdate?.(update);
+      optionsRef.current.onInventoryUpdate?.(update);
     });
 
     // Sale update handler
     socket.on('sale:update', (update: SaleUpdate) => {
       console.log('Received sale update:', update);
-      options.onSaleUpdate?.(update);
+      optionsRef.current.onSaleUpdate?.(update);
     });
 
     // Cleanup on unmount
@@ -112,7 +123,7 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
       }
     };
   }, [isAuthenticated, accessToken, selectedBranch?._id, 
-      options.onConnect, options.onDisconnect, options.onError, options.onInventoryUpdate, options.onSaleUpdate]);
+      selectedBranch?._id]);
 
   // Join a specific branch room
   const joinBranch = (branchId: string) => {

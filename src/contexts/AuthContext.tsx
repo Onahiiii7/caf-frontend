@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useCallback, type ReactNode } from 'react';
 import { useAuthStore, type User } from '../stores/auth-store';
 import apiClient from '../lib/api-client';
 
@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const { isAuthenticated, user, clearAuth, setAuth, accessToken, refreshToken } = useAuthStore();
 
   // Token refresh logic
-  const refreshAccessToken = async () => {
+  const refreshAccessToken = useCallback(async () => {
     try {
       const storedRefreshToken = refreshToken || localStorage.getItem('refreshToken');
       
@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       clearAuth();
       window.location.href = '/login';
     }
-  };
+  }, [refreshToken, user, setAuth, clearAuth]);
 
   // Logout function
   const logout = async () => {
@@ -79,12 +79,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }, 7.5 * 60 * 60 * 1000);
 
     return () => clearInterval(refreshInterval);
-  }, [isAuthenticated, accessToken]);
+  }, [isAuthenticated, accessToken, refreshAccessToken]);
 
   // Validate token on mount
   useEffect(() => {
     const validateToken = async () => {
-      const storedAccessToken = accessToken || localStorage.getItem('accessToken');
+      const storedAccessToken = accessToken;
       
       if (storedAccessToken && isAuthenticated) {
         try {

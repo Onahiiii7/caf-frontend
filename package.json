@@ -10,9 +10,16 @@
     "preview": "vite preview",
     "cap:sync": "pnpm run build && pnpm exec cap sync",
     "cap:android": "pnpm run build && pnpm exec cap sync android",
-    "cap:open:android": "pnpm exec cap open android"
+    "cap:open:android": "pnpm exec cap open android",
+    "android:sync": "pnpm run build && pnpm exec cap sync android",
+    "android:bundle": "pnpm run android:sync && .\\android\\gradlew.bat -p android bundleRelease",
+    "android:apk": "pnpm run android:sync && .\\android\\gradlew.bat -p android assembleRelease",
+    "android:clean": ".\\android\\gradlew.bat -p android clean",
+    "live:update:build": "pnpm run build",
+    "live:update:sync": "pnpm run build && pnpm exec cap sync"
   },
   "dependencies": {
+    "@capgo/capacitor-updater": "^7.0.0",
     "@aparajita/capacitor-biometric-auth": "^10.0.0",
     "@capacitor-mlkit/barcode-scanning": "^8.0.1",
     "@capacitor/android": "^8.3.0",

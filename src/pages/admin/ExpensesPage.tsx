@@ -94,7 +94,6 @@ export function ExpensesPage() {
       const response = await apiClient.post('/expenses', {
         ...data,
         branchId,
-        recordedBy: 'self', // backend resolves from JWT
       });
       return response.data;
     },
@@ -111,7 +110,7 @@ export function ExpensesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiClient.delete(`/expenses/${id}`);
+      await apiClient.patch(`/expenses/${id}/soft-delete`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.expenses.all() });

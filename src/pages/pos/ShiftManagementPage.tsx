@@ -44,7 +44,7 @@ export const ShiftManagementPage = () => {
   const selectedBranch = useBranchStore((state) => state.selectedBranch);
   const user = useAuthStore((state) => state.user);
   const { format, symbol } = useCurrency();
-  const { showError, showWarning, showSuccess } = useToast();
+  const { showError, showWarning, showSuccess, showInfo } = useToast();
   
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
@@ -77,7 +77,7 @@ export const ShiftManagementPage = () => {
       const response = await apiClient.get('/shifts/current', {
         params: { branchId, cashierId, terminalId },
       });
-      return response.data as Shift;
+      return response.data.data as Shift;
     },
     enabled: !!getBranchId(selectedBranch) && !!user?.id,
     retry: false,
@@ -96,7 +96,7 @@ export const ShiftManagementPage = () => {
       const response = await apiClient.get('/shifts', {
         params: { branchId, limit: '20' },
       });
-      return response.data as Shift[];
+      return response.data.data as Shift[];
     },
     enabled: !!getBranchId(selectedBranch) && activeTab === 'history',
     retry: false,
@@ -122,7 +122,7 @@ export const ShiftManagementPage = () => {
         cashierId: user?.id,
         openingCash: data.openingCash,
       });
-      return response.data;
+      return response.data.data as Shift;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all(), exact: false });
@@ -132,6 +132,15 @@ export const ShiftManagementPage = () => {
       showSuccess('Shift opened successfully');
     },
     onError: (error) => {
+      const status = (error as any)?.response?.status;
+      if (status === 409) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all(), exact: false });
+        refetchCurrentShift();
+        setShowOpenModal(false);
+        showInfo('Shift Already Open', 'An active shift already exists for this cashier. Loaded existing shift.');
+        return;
+      }
+
       showError(getErrorMessage(error, 'Failed to open shift'));
     },
   });
@@ -152,7 +161,7 @@ export const ShiftManagementPage = () => {
         notes: data.notes,
         totalSales: currentShift?.totalSales || 0,
       });
-      return response.data;
+      return response.data.data as Shift;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all(), exact: false });

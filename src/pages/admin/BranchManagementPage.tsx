@@ -68,11 +68,15 @@ export const BranchManagementPage = () => {
   // Create branch mutation
   const createMutation = useMutation({
     mutationFn: async (data: BranchFormData) => {
+      const expiryAlertDays = data.expiryAlertDays
+        .split(',')
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((value) => Number.isFinite(value));
       const payload = {
         ...data,
         config: {
           reorderThreshold: data.reorderThreshold,
-          expiryAlertDays: data.expiryAlertDays.split(',').map(d => parseInt(d.trim())),
+          expiryAlertDays,
           allowNegativeStock: data.allowNegativeStock,
         },
       };
@@ -92,11 +96,15 @@ export const BranchManagementPage = () => {
   const updateMutation = useMutation({
     mutationFn: async (data: BranchFormData) => {
       if (!editingBranch) return;
+      const expiryAlertDays = data.expiryAlertDays
+        .split(',')
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((value) => Number.isFinite(value));
       const payload = {
         ...data,
         config: {
           reorderThreshold: data.reorderThreshold,
-          expiryAlertDays: data.expiryAlertDays.split(',').map(d => parseInt(d.trim())),
+          expiryAlertDays,
           allowNegativeStock: data.allowNegativeStock,
         },
       };
@@ -312,7 +320,8 @@ export const BranchManagementPage = () => {
                   type="number"
                   {...register('reorderThreshold', { 
                     required: 'Reorder threshold is required',
-                    min: { value: 0, message: 'Must be 0 or greater' }
+                    min: { value: 0, message: 'Must be 0 or greater' },
+                    valueAsNumber: true,
                   })}
                   error={errors.reorderThreshold?.message}
                   placeholder="Enter minimum stock level"

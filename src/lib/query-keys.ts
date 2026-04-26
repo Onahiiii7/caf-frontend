@@ -94,7 +94,7 @@ export const queryKeys = {
   customers: {
     all: () => [...queryKeys.all(), 'customers'] as const,
     lists: () => [...queryKeys.customers.all(), 'list'] as const,
-    list: (filters?: BaseFilters) => [...queryKeys.customers.lists(), filters] as const,
+    list: (filters?: BaseFilters & PaginationParams) => [...queryKeys.customers.lists(), filters] as const,
     details: () => [...queryKeys.customers.all(), 'detail'] as const,
     detail: (id: string) => [...queryKeys.customers.details(), id] as const,
   },
@@ -140,14 +140,19 @@ export const queryKeys = {
     all: () => [...queryKeys.all(), 'sales'] as const,
     lists: () => [...queryKeys.sales.all(), 'list'] as const,
     list: (filters?: SalesFilters) => [...queryKeys.sales.lists(), filters] as const,
+    details: () => [...queryKeys.sales.all(), 'detail'] as const,
+    detail: (id?: string) => [...queryKeys.sales.details(), id] as const,
     recent: (filters?: SalesFilters) => [...queryKeys.sales.all(), 'recent', filters] as const,
     history: (filters?: SalesFilters) => [...queryKeys.sales.all(), 'history', filters] as const,
-    detail: (id?: string) => [...queryKeys.sales.all(), 'detail', id] as const,
   },
 
   // Shifts
   shifts: {
     all: () => [...queryKeys.all(), 'shifts'] as const,
+    lists: () => [...queryKeys.shifts.all(), 'list'] as const,
+    list: (filters?: BaseFilters & { cashierId?: string; status?: string }) => [...queryKeys.shifts.lists(), filters] as const,
+    details: () => [...queryKeys.shifts.all(), 'detail'] as const,
+    detail: (id: string) => [...queryKeys.shifts.details(), id] as const,
     current: (filters?: { branchId?: string; cashierId?: string; terminalId?: string }) =>
       [...queryKeys.shifts.all(), 'current', filters] as const,
     history: (filters?: { branchId?: string; limit?: number }) => [...queryKeys.shifts.all(), 'history', filters] as const,
@@ -157,7 +162,12 @@ export const queryKeys = {
   // Expenses
   expenses: {
     all: () => [...queryKeys.all(), 'expenses'] as const,
+    lists: () => [...queryKeys.expenses.all(), 'list'] as const,
+    list: (filters?: BaseFilters & { shiftId?: string; category?: string }) => [...queryKeys.expenses.lists(), filters] as const,
+    details: () => [...queryKeys.expenses.all(), 'detail'] as const,
+    detail: (id: string) => [...queryKeys.expenses.details(), id] as const,
     shift: (shiftId?: string) => [...queryKeys.expenses.all(), 'shift', shiftId] as const,
+    byCategory: (branchId?: string) => [...queryKeys.expenses.all(), 'by-category', branchId] as const,
   },
   
   // Email Templates
@@ -275,14 +285,16 @@ export const queryKeys = {
   // Finance Transactions
   finance: {
     all: () => [...queryKeys.all(), 'finance'] as const,
-    list: (filters?: { branchId?: string; type?: string }) => [...queryKeys.finance.all(), 'list', filters] as const,
+    lists: () => [...queryKeys.finance.all(), 'list'] as const,
+    list: (filters?: { branchId?: string; type?: string }) => [...queryKeys.finance.lists(), filters] as const,
     summary: (branchId?: string) => [...queryKeys.finance.all(), 'summary', branchId] as const,
   },
 
   // Printers
   printers: {
     all: () => [...queryKeys.all(), 'printers'] as const,
-    list: (branchId?: string) => [...queryKeys.printers.all(), 'list', branchId] as const,
+    lists: () => [...queryKeys.printers.all(), 'list'] as const,
+    list: (branchId?: string) => [...queryKeys.printers.lists(), branchId] as const,
   },
 
   // Valuation
@@ -294,9 +306,9 @@ export const queryKeys = {
   // Marketer
   marketer: {
     all: () => [...queryKeys.all(), 'marketer'] as const,
-    assignments: (filters?: { branchId?: string; marketerId?: string; productId?: string; activeOnly?: boolean; status?: 'pending' | 'accepted' | 'rejected' }) =>
+    assignments: (filters?: { branchId?: string; marketerId?: string; productId?: string; activeOnly?: boolean; status?: 'pending' | 'accepted' | 'rejected' } & PaginationParams) =>
       [...queryKeys.marketer.all(), 'assignments', filters] as const,
-    sales: (filters?: { branchId?: string; marketerId?: string; limit?: number }) =>
+    sales: (filters?: { branchId?: string; marketerId?: string } & PaginationParams) =>
       [...queryKeys.marketer.all(), 'sales', filters] as const,
     summary: (filters?: { branchId?: string; marketerId?: string }) =>
       [...queryKeys.marketer.all(), 'summary', filters] as const,

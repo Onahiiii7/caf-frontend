@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth-store';
 import { useBranchStore } from '../stores/branch-store';
 import apiClient from '../lib/api-client';
+import { ConnectionStatus } from './ui/ConnectionStatus';
+import { OfflineNotification } from './ui/OfflineNotification';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -165,6 +167,8 @@ export const AdminLayout = ({ children, title = 'Admin' }: AdminLayoutProps) => 
 
   return (
     <div className="min-h-screen bg-primary-darker flex">
+      <ConnectionStatus />
+      <OfflineNotification />
       <aside className="hidden lg:flex w-64 bg-primary-dark border-r border-gray-800 flex-col">
         <div className="p-6 border-b border-gray-800">
           <h1 className="text-2xl font-bold text-white">Pharmacy POS</h1>

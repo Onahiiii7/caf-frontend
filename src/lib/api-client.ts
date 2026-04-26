@@ -1,6 +1,12 @@
 import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
+import { v4 as uuidv4 } from 'uuid';
+import { SyncService } from '../services/sync-service';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+// Local cache to map request fingerprints to idempotency keys
+// Key: JSON.stringify({ method, url, payload }) -> Value: UUID
+const requestKeyCache = new Map<string, string>();
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
@@ -12,13 +18,47 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Helper to read token from Zustand persisted storage
+function getStoredToken(key: 'accessToken' | 'refreshToken'): string | null {
+  try {
+    const raw = localStorage.getItem('auth-storage');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.state?.[key] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Request interceptor to add auth token and idempotency keys
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('accessToken');
+    // 1. Add Auth Token
+    const token = getStoredToken('accessToken');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // 2. Handle Idempotency for write operations
+    const writeMethods = ['post', 'put', 'patch', 'delete'];
+    if (config.method && writeMethods.includes(config.method.toLowerCase())) {
+      const fingerprint = JSON.stringify({
+        method: config.method,
+        url: config.url,
+        data: config.data,
+      });
+
+      let idempotencyKey = requestKeyCache.get(fingerprint);
+      if (!idempotencyKey) {
+        idempotencyKey = uuidv4();
+        requestKeyCache.set(fingerprint, idempotencyKey);
+      }
+
+      if (config.headers) {
+        config.headers['X-Idempotency-Key'] = idempotencyKey;
+      }
+    }
+
     return config;
   },
   (error: AxiosError) => {
@@ -26,18 +66,56 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle token refresh
+// Response interceptor to handle token refresh and offline queuing
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Clear idempotency key on successful write operation to allow future identical requests
+    const config = response.config;
+    if (config && config.method && ['post', 'put', 'patch', 'delete'].includes(config.method.toLowerCase())) {
+      const fingerprint = JSON.stringify({
+        method: config.method,
+        url: config.url,
+        data: config.data,
+      });
+      requestKeyCache.delete(fingerprint);
+    }
+    return response;
+  },
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const requestUrl = originalRequest.url || '';
+    const isAuthEndpoint = /\/auth\/(login|refresh|logout)/.test(requestUrl);
+
+    // Handle Offline Queuing: if network error and write operation, queue it
+    if (
+      !error.response &&
+      !isAuthEndpoint &&
+      originalRequest.method &&
+      ['post', 'put', 'patch', 'delete'].includes(originalRequest.method.toLowerCase())
+    ) {
+      try {
+        await SyncService.queueRequest({
+          url: requestUrl,
+          method: originalRequest.method?.toUpperCase() as any,
+          payload: originalRequest.data,
+          headers: originalRequest.headers as any,
+        });
+
+        // Return a custom error that the UI can interpret as "Queued for Offline Sync"
+        const offlineError = new Error('Network unavailable. Request queued for offline sync.');
+        (offlineError as any).isOfflineQueued = true;
+        return Promise.reject(offlineError);
+      } catch (queueError) {
+        console.error('Failed to queue offline request:', queueError);
+      }
+    }
 
     // If error is 401 and we haven't retried yet
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
+        const refreshToken = getStoredToken('refreshToken');
         if (!refreshToken) {
           throw new Error('No refresh token available');
         }
@@ -49,8 +127,17 @@ apiClient.interceptors.response.use(
           withCredentials: true,
         });
 
-        const { accessToken } = response.data;
-        localStorage.setItem('accessToken', accessToken);
+        const { accessToken, refreshToken: newRefreshToken } = response.data;
+        // Update Zustand persisted storage
+        try {
+          const raw = localStorage.getItem('auth-storage');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            parsed.state.accessToken = accessToken;
+            if (newRefreshToken) parsed.state.refreshToken = newRefreshToken;
+            localStorage.setItem('auth-storage', JSON.stringify(parsed));
+          }
+        } catch { /* ignore parse errors */ }
 
         // Retry the original request with new token
         if (originalRequest.headers) {
@@ -59,8 +146,7 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       } catch (refreshError) {
         // Refresh failed, clear tokens and redirect to login
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('auth-storage');
         window.location.href = '/login';
         return Promise.reject(refreshError);
       }

@@ -159,7 +159,7 @@ export default function HQDashboardPage() {
       const branches = (branchesResponse.data as Branch[]).filter(
         (branch) => branch.isActive !== false,
       );
-      const products = productsResponse.data as Product[];
+      const products = productsResponse.data.data as Product[];
       const pendingTransfersRaw = transfersResponse.data as PendingTransferRaw[];
 
       let users: User[] = [];

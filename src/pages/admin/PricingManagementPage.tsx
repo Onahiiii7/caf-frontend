@@ -60,7 +60,7 @@ export const PricingManagementPage = () => {
     queryKey: queryKeys.products.list(),
     queryFn: async () => {
       const response = await apiClient.get('/products');
-      return response.data;
+      return response.data.data;
     },
   });
 

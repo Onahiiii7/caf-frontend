@@ -40,7 +40,7 @@ export const POSPage = () => {
   const queryClient = useQueryClient();
   const selectedBranch = useBranchStore((state) => state.selectedBranch);
   const user = useAuthStore((state) => state.user);
-  const { alertInfo } = useAlertReplacement();
+  const { alertInfo, alertWarning } = useAlertReplacement();
   const { 
     items, 
     addItem, 
@@ -55,7 +55,14 @@ export const POSPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showShiftModal, setShowShiftModal] = useState(false);
+  const [showCloseShiftModal, setShowCloseShiftModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [openingCash, setOpeningCash] = useState('');
+  const [closingCash, setClosingCash] = useState('');
+  const [closeShiftNotes, setCloseShiftNotes] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseCategory, setExpenseCategory] = useState('supplies');
+  const [expenseDescription, setExpenseDescription] = useState('');
   const [stockWarning, setStockWarning] = useState<{ productId: string; message: string } | null>(null);
   const [showMobileCart, setShowMobileCart] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -85,7 +92,7 @@ export const POSPage = () => {
       if (searchQuery) params.search = searchQuery;
       if (selectedCategory !== 'all') params.category = selectedCategory;
       const response = await apiClient.get('/products', { params });
-      return response.data as Product[];
+      return response.data.data as Product[];
     },
     enabled: !!getBranchId(selectedBranch),
     retry: false,
@@ -107,7 +114,7 @@ export const POSPage = () => {
         const res = await apiClient.get('/products', {
           params: { branchId, barcode },
         });
-        const list = res.data as Product[];
+        const list = res.data.data as Product[];
         found = list[0];
       } catch {
         // ignore
@@ -187,7 +194,7 @@ export const POSPage = () => {
   };
 
   // Get current shift
-  const { data: currentShift } = useQuery({
+  const { data: currentShift, refetch: refetchCurrentShift } = useQuery({
     queryKey: queryKeys.shifts.current({
       branchId: getBranchId(selectedBranch),
       cashierId: user?.id,
@@ -204,7 +211,7 @@ export const POSPage = () => {
       const response = await apiClient.get('/shifts/current', {
         params: { branchId, cashierId, terminalId },
       });
-      return response.data as Shift;
+      return response.data.data as Shift;
     },
     enabled: !!getBranchId(selectedBranch) && !!user?.id,
     retry: false,
@@ -226,12 +233,88 @@ export const POSPage = () => {
         cashierId,
         openingCash: data.openingCash,
       });
-      return response.data;
+      return response.data.data as Shift;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all(), exact: false });
       setShowShiftModal(false);
       setOpeningCash('');
+      refetchCurrentShift();
+    },
+    onError: async (error: any) => {
+      if (error?.response?.status === 409) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all(), exact: false });
+        await refetchCurrentShift();
+        setShowShiftModal(false);
+        alertInfo('An active shift already exists for this cashier. Loaded existing shift.');
+        return;
+      }
+
+      alertWarning(error?.response?.data?.message || 'Failed to open shift. Please try again.');
+    },
+  });
+
+  // Close shift mutation
+  const closeShiftMutation = useMutation({
+    mutationFn: async (data: { shiftId: string; closingCash: number; notes?: string }) => {
+      if (!data.shiftId) {
+        throw new Error('Shift ID is required');
+      }
+
+      if (isNaN(data.closingCash) || data.closingCash < 0) {
+        throw new Error('Valid closing cash amount is required');
+      }
+
+      const response = await apiClient.post(`/shifts/${data.shiftId}/close`, {
+        closingCash: data.closingCash,
+        notes: data.notes,
+        totalSales: currentShift?.totalSales || 0,
+      });
+      return response.data.data as Shift;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all(), exact: false });
+      setShowCloseShiftModal(false);
+      setClosingCash('');
+      setCloseShiftNotes('');
+      refetchCurrentShift();
+      alertInfo('Shift closed successfully');
+    },
+    onError: (error: any) => {
+      alertWarning(error?.response?.data?.message || 'Failed to close shift. Please try again.');
+    },
+  });
+
+  // Create expense mutation
+  const createExpenseMutation = useMutation({
+    mutationFn: async (data: { amount: number; category: string; description: string }) => {
+      const branchId = getBranchId(selectedBranch);
+      const recordedBy = user?.id;
+
+      if (!currentShift || !branchId || !recordedBy) {
+        throw new Error('Missing required data');
+      }
+
+      const response = await apiClient.post('/expenses', {
+        branchId,
+        shiftId: currentShift._id,
+        recordedBy,
+        amount: data.amount,
+        category: data.category,
+        description: data.description,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.expenses.all(), exact: false });
+      setShowExpenseModal(false);
+      setExpenseAmount('');
+      setExpenseCategory('supplies');
+      setExpenseDescription('');
+      alertInfo('Expense recorded successfully');
+    },
+    onError: (error: any) => {
+      alertWarning(error?.response?.data?.message || 'Failed to record expense. Please try again.');
     },
   });
 
@@ -239,6 +322,49 @@ export const POSPage = () => {
     const amount = parseFloat(openingCash);
     if (isNaN(amount) || amount < 0) return;
     openShiftMutation.mutate({ openingCash: amount });
+  };
+
+  const handleCloseShift = () => {
+    if (!currentShift) {
+      alertWarning('No active shift found.');
+      return;
+    }
+
+    const amount = parseFloat(closingCash);
+    if (isNaN(amount) || amount < 0) {
+      alertWarning('Please enter a valid closing cash amount.');
+      return;
+    }
+
+    closeShiftMutation.mutate({
+      shiftId: currentShift._id,
+      closingCash: amount,
+      notes: closeShiftNotes || undefined,
+    });
+  };
+
+  const handleCreateExpense = () => {
+    if (!currentShift || currentShift.status !== 'open') {
+      alertWarning('Open a shift before logging expenses.');
+      return;
+    }
+
+    const amount = parseFloat(expenseAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alertWarning('Enter a valid expense amount.');
+      return;
+    }
+
+    if (!expenseDescription.trim()) {
+      alertWarning('Expense description is required.');
+      return;
+    }
+
+    createExpenseMutation.mutate({
+      amount,
+      category: expenseCategory,
+      description: expenseDescription.trim(),
+    });
   };
 
   const handleAddToCart = (product: Product) => {
@@ -263,6 +389,14 @@ export const POSPage = () => {
     { id: 'otc', label: 'OTC' },
     { id: 'prescription', label: 'Prescription' },
     { id: 'vitamins', label: 'Vitamins' },
+  ];
+
+  const expenseCategories = [
+    { value: 'utilities', label: 'Utilities' },
+    { value: 'supplies', label: 'Supplies' },
+    { value: 'maintenance', label: 'Maintenance' },
+    { value: 'petty_cash', label: 'Petty Cash' },
+    { value: 'other', label: 'Other' },
   ];
 
   const cartItemCount = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -309,9 +443,23 @@ export const POSPage = () => {
           {/* Center: Shift Status */}
           <div className="flex items-center space-x-3">
             {currentShift?.status === 'open' ? (
-              <div className="flex items-center space-x-2 px-3 py-1.5 bg-green-500/10 border border-green-500/30 rounded-lg">
-                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-green-400 text-xs font-medium">Shift Active</span>
+              <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 px-3 py-1.5 bg-green-500/10 border border-green-500/30 rounded-lg">
+                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-green-400 text-xs font-medium">Shift Active</span>
+                </div>
+                <button
+                  onClick={() => setShowCloseShiftModal(true)}
+                  className="px-4 py-1.5 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-xs font-medium hover:bg-red-500/20 transition-colors"
+                >
+                  Close Shift
+                </button>
+                <button
+                  onClick={() => setShowExpenseModal(true)}
+                  className="px-4 py-1.5 bg-orange-500/10 border border-orange-500/30 rounded-lg text-orange-300 text-xs font-medium hover:bg-orange-500/20 transition-colors"
+                >
+                  Log Expense
+                </button>
               </div>
             ) : (
               <button
@@ -775,6 +923,138 @@ export const POSPage = () => {
                 className="flex-1 py-3 bg-accent-green text-primary-dark font-semibold rounded-xl disabled:opacity-50"
               >
                 {openShiftMutation.isPending ? 'Opening...' : 'Open Shift'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Close Shift Modal */}
+      {showCloseShiftModal && currentShift && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/75" onClick={() => setShowCloseShiftModal(false)} />
+          <div className="relative bg-primary-dark rounded-2xl p-6 w-full max-w-md mx-4 border border-gray-700">
+            <h2 className="text-xl font-bold text-white mb-4">Close Shift</h2>
+            <p className="text-gray-400 mb-4">Count the cash in the register and confirm shift closure.</p>
+
+            <div className="bg-primary-darker rounded-xl p-4 mb-4 space-y-2 border border-gray-700">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Opening Cash</span>
+                <span className="text-white">{format(currentShift.openingCash)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Total Sales</span>
+                <span className="text-white">{format(currentShift.totalSales || 0)}</span>
+              </div>
+              <div className="flex justify-between text-base pt-2 border-t border-gray-700">
+                <span className="text-white font-medium">Expected Cash</span>
+                <span className="text-accent-green font-bold">{format(currentShift.expectedCash || currentShift.openingCash)}</span>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-gray-400 text-sm mb-2">Actual Closing Cash Amount</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-accent-green font-bold">{symbol}</span>
+                <input
+                  type="number"
+                  value={closingCash}
+                  onChange={(e) => setClosingCash(e.target.value)}
+                  placeholder={`${symbol} 0.00`}
+                  className="w-full pl-10 pr-4 py-3 bg-primary-darker border border-gray-600 rounded-xl text-white focus:outline-none focus:border-accent-green"
+                />
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-gray-400 text-sm mb-2">Notes (Optional)</label>
+              <textarea
+                value={closeShiftNotes}
+                onChange={(e) => setCloseShiftNotes(e.target.value)}
+                placeholder="Any discrepancy or handover note..."
+                rows={3}
+                className="w-full px-4 py-3 bg-primary-darker border border-gray-600 rounded-xl text-white resize-none focus:outline-none focus:border-accent-green"
+              />
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowCloseShiftModal(false)}
+                className="flex-1 py-3 bg-gray-700 text-white font-medium rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCloseShift}
+                disabled={closeShiftMutation.isPending || !closingCash.trim()}
+                className="flex-1 py-3 bg-red-600 text-white font-semibold rounded-xl disabled:opacity-50"
+              >
+                {closeShiftMutation.isPending ? 'Closing...' : 'Close Shift'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expense Modal */}
+      {showExpenseModal && currentShift && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/75" onClick={() => setShowExpenseModal(false)} />
+          <div className="relative bg-primary-dark rounded-2xl p-6 w-full max-w-md mx-4 border border-gray-700">
+            <h2 className="text-xl font-bold text-white mb-4">Log Expense</h2>
+            <p className="text-gray-400 mb-4">Record a cash expense for this active shift.</p>
+
+            <div className="mb-4">
+              <label className="block text-gray-400 text-sm mb-2">Amount</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-accent-green font-bold">{symbol}</span>
+                <input
+                  type="number"
+                  value={expenseAmount}
+                  onChange={(e) => setExpenseAmount(e.target.value)}
+                  placeholder={`${symbol} 0.00`}
+                  className="w-full pl-10 pr-4 py-3 bg-primary-darker border border-gray-600 rounded-xl text-white focus:outline-none focus:border-accent-green"
+                />
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-gray-400 text-sm mb-2">Category</label>
+              <select
+                value={expenseCategory}
+                onChange={(e) => setExpenseCategory(e.target.value)}
+                className="w-full px-4 py-3 bg-primary-darker border border-gray-600 rounded-xl text-white focus:outline-none focus:border-accent-green"
+              >
+                {expenseCategories.map((cat) => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-gray-400 text-sm mb-2">Description</label>
+              <textarea
+                value={expenseDescription}
+                onChange={(e) => setExpenseDescription(e.target.value)}
+                placeholder="What was this expense for?"
+                rows={3}
+                className="w-full px-4 py-3 bg-primary-darker border border-gray-600 rounded-xl text-white resize-none focus:outline-none focus:border-accent-green"
+              />
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowExpenseModal(false)}
+                className="flex-1 py-3 bg-gray-700 text-white font-medium rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateExpense}
+                disabled={createExpenseMutation.isPending || !expenseAmount.trim() || !expenseDescription.trim()}
+                className="flex-1 py-3 bg-accent-green text-primary-dark font-semibold rounded-xl disabled:opacity-50"
+              >
+                {createExpenseMutation.isPending ? 'Logging...' : 'Log Expense'}
               </button>
             </div>
           </div>

@@ -104,7 +104,7 @@ export default function TransferManagementPage() {
     queryKey: queryKeys.products.list(),
     queryFn: async () => {
       const response = await apiClient.get('/products');
-      return response.data as Product[];
+      return response.data.data as Product[];
     },
   });
 

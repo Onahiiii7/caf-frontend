@@ -3,8 +3,12 @@ import apiClient from '../../lib/api-client';
 import { MarketerLayout } from '../../components/MarketerLayout';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
+import { Pagination } from '../../components/ui/Pagination';
 import { queryKeys } from '../../lib/query-keys';
 import { useCurrency } from '../../hooks/useCurrency';
+import { usePagination } from '../../hooks/usePagination';
+import { useToast } from '../../hooks/useToast';
+import { getErrorMessage } from '../../lib/error-utils';
 
 interface Assignment {
   _id: string;
@@ -23,11 +27,15 @@ interface AssignmentResponse {
 export const MarketerReviewAssignmentsPage = () => {
   const queryClient = useQueryClient();
   const { format } = useCurrency();
+  const { showSuccess, showError } = useToast();
+  const pagination = usePagination({ initialLimit: 20 });
 
   const { data, isLoading } = useQuery<AssignmentResponse>({
-    queryKey: queryKeys.marketer.assignments({ activeOnly: true }),
+    queryKey: queryKeys.marketer.assignments({ activeOnly: true, page: pagination.state.page, limit: pagination.state.limit }),
     queryFn: async () => {
-      const response = await apiClient.get('/marketer/assignments', { params: { activeOnly: true } });
+      const response = await apiClient.get('/marketer/assignments', {
+        params: { activeOnly: true, page: pagination.state.page, limit: pagination.state.limit },
+      });
       return response.data as AssignmentResponse;
     },
   });
@@ -36,6 +44,10 @@ export const MarketerReviewAssignmentsPage = () => {
     mutationFn: async (id: string) => apiClient.patch(`/marketer/assignments/${id}/accept`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.marketer.all(), exact: false });
+      showSuccess('Assignment accepted successfully');
+    },
+    onError: (error) => {
+      showError(getErrorMessage(error, 'Failed to accept assignment'));
     },
   });
 
@@ -90,6 +102,20 @@ export const MarketerReviewAssignmentsPage = () => {
           isLoading={isLoading}
           emptyMessage="No assignments to review"
         />
+        {data?.count && data.count > 0 && (
+          <Pagination
+            meta={{
+              page: pagination.state.page,
+              limit: pagination.state.limit,
+              total: data.count,
+              pages: Math.ceil(data.count / pagination.state.limit),
+              hasNext: pagination.state.page < Math.ceil(data.count / pagination.state.limit),
+              hasPrev: pagination.state.page > 1,
+            }}
+            onPageChange={pagination.setPage}
+            onLimitChange={pagination.setLimit}
+          />
+        )}
       </div>
     </MarketerLayout>
   );

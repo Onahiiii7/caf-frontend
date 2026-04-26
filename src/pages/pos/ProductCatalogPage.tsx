@@ -50,7 +50,7 @@ export const ProductCatalogPage = () => {
       if (searchQuery) params.search = searchQuery;
       if (selectedCategory !== 'all') params.category = selectedCategory;
       const response = await apiClient.get('/products', { params });
-      return response.data as Product[];
+      return response.data.data as Product[];
     },
     enabled: !!getBranchId(selectedBranch),
   });
@@ -81,7 +81,7 @@ export const ProductCatalogPage = () => {
       const response = await apiClient.get('/products', {
         params: { branchId, barcode },
       });
-      const product = response.data[0];
+      const product = response.data.data[0];
       if (product) {
         handleAddToCart(product);
         alertInfo(`Added ${product.name} to cart`);

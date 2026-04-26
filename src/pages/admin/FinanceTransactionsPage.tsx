@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import apiClient from '../../lib/api-client';
 import { AdminLayout } from '../../components/AdminLayout';
@@ -11,9 +11,8 @@ import { Loading } from '../../components/ui/Loading';
 import { Error } from '../../components/ui/Error';
 import { useBranchStore, getBranchId } from '../../stores/branch-store';
 import { queryKeys } from '../../lib/query-keys';
-import { buildApiUrl } from '../../lib/api-utils';
-import { useToast } from '../../hooks/useToast';
 import { useCurrency } from '../../hooks/useCurrency';
+import { useBranchAwareCRUDMutations } from '../../hooks/useCRUDMutations';
 
 const TX_TYPES = [
   { value: 'cash_in', label: 'Cash In' },
@@ -70,8 +69,6 @@ interface TxFormData {
 export function FinanceTransactionsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { selectedBranch } = useBranchStore();
-  const queryClient = useQueryClient();
-  const { showSuccess, showError } = useToast();
   const { format } = useCurrency();
 
   const branchId = getBranchId(selectedBranch);
@@ -83,9 +80,9 @@ export function FinanceTransactionsPage() {
   });
 
   const { data: transactions, isLoading, error } = useQuery({
-    queryKey: ['finance', 'list', branchId],
+    queryKey: queryKeys.finance.list({ branchId }),
     queryFn: async () => {
-      const response = await apiClient.get(buildApiUrl('/finance/transactions'), {
+      const response = await apiClient.get('/finance/transactions', {
         params: { branchId },
       });
       return response.data as FinanceTransaction[];
@@ -94,9 +91,9 @@ export function FinanceTransactionsPage() {
   });
 
   const { data: summary } = useQuery({
-    queryKey: ['finance', 'summary', branchId],
+    queryKey: queryKeys.finance.summary(branchId),
     queryFn: async () => {
-      const response = await apiClient.get(buildApiUrl('/finance/transactions/summary'), {
+      const response = await apiClient.get('/finance/transactions/summary', {
         params: { branchId },
       });
       return response.data as FinanceSummary;
@@ -104,24 +101,20 @@ export function FinanceTransactionsPage() {
     enabled: !!branchId,
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: TxFormData) => {
-      const response = await apiClient.post('/finance/transactions', {
-        ...data,
-        branchId,
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['finance'] });
-      showSuccess('Transaction recorded');
+  const mutationOptions = {
+    resourceLabel: 'Transaction',
+    onCreateSuccess: () => {
       setIsModalOpen(false);
       reset();
     },
-    onError: (err: any) => {
-      showError(err?.response?.data?.message ?? 'Failed to record transaction');
-    },
-  });
+  };
+
+  const { createMutation } = useBranchAwareCRUDMutations(
+    'finance/transactions',
+    queryKeys.finance.all(),
+    branchId || '',
+    mutationOptions,
+  );
 
   return (
     <AdminLayout>

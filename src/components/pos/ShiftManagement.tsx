@@ -82,6 +82,9 @@ export const ShiftManagement = ({
   // Close shift mutation
   const closeShiftMutation = useMutation({
     mutationFn: async (data: { closingCash: number; notes?: string }) => {
+      if (!currentShift) {
+        throw new Error('No active shift to close');
+      }
       const response = await apiClient.post(`/shifts/${currentShift._id}/close`, {
         closingCash: data.closingCash,
         notes: data.notes,

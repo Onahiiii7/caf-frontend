@@ -1,8 +1,16 @@
 import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
-import { v4 as uuidv4 } from 'uuid';
 import { SyncService } from '../services/sync-service';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+// Simple UUID v4 generator (no external dependency needed)
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 // Local cache to map request fingerprints to idempotency keys
 // Key: JSON.stringify({ method, url, payload }) -> Value: UUID
@@ -50,7 +58,7 @@ apiClient.interceptors.request.use(
 
       let idempotencyKey = requestKeyCache.get(fingerprint);
       if (!idempotencyKey) {
-        idempotencyKey = uuidv4();
+        idempotencyKey = generateUUID();
         requestKeyCache.set(fingerprint, idempotencyKey);
       }
 

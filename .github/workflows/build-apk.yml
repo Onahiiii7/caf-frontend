@@ -45,11 +45,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'pnpm'
-          cache-dependency-path: frontend/pnpm-lock.yaml
 
-      - name: Install pnpm
-        run: npm install -g pnpm@9
+      - name: Install pnpm globally
+        run: npm install -g pnpm
 
       - name: Install frontend dependencies
         working-directory: frontend

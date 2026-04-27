@@ -45,6 +45,11 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
+      - name: Set JAVA_HOME environment variable
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> $GITHUB_ENV
+          echo "PATH=$JAVA_HOME_21_X64/bin:$PATH" >> $GITHUB_ENV
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 

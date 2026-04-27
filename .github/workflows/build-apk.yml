@@ -115,15 +115,21 @@ jobs:
 
       # ── Capgo live update (optional) ──────────────────────────────────────
       - name: Publish web bundle to Capgo
-        if: github.event.inputs.upload_to_capgo == 'true' && secrets.CAPGO_TOKEN != ''
+        if: github.event.inputs.upload_to_capgo == 'true'
         working-directory: frontend
         env:
           CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}
-        run: npx @capgo/cli bundle upload --channel production --path dist --apikey "$CAPGO_TOKEN"
+        run: |
+          if [ -n "$CAPGO_TOKEN" ]; then
+            npx @capgo/cli bundle upload --channel production --path dist --apikey "$CAPGO_TOKEN"
+          fi
 
       # ── Cleanup secrets ────────────────────────────────────────────────────
       - name: Remove keystore from runner
-        if: always() && env.BUILD_TYPE == 'release'
+        if: always()
         run: |
           rm -f frontend/android/release-key.jks
           rm -f frontend/android/keystore.properties
+
+      - name: Final cleanup
+        run: echo "Build workflow completed"

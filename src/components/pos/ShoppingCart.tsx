@@ -1,4 +1,5 @@
 import { useCartStore } from '../../stores/cart-store';
+import type { PackagingUnit } from '../../stores/cart-store';
 import { useCurrency } from '../../hooks/useCurrency';
 import { Button } from '../ui/Button';
 
@@ -7,7 +8,7 @@ interface ShoppingCartProps {
 }
 
 export const ShoppingCart = ({ onCheckout }: ShoppingCartProps) => {
-  const { items, subtotal, discount, total, updateQuantity, removeItem } = useCartStore();
+  const { items, subtotal, discount, total, updateQuantity, removeItem, updateItemUnit } = useCartStore();
   const { format } = useCurrency();
 
   const handleQuantityChange = (productId: string, newQuantity: string) => {
@@ -75,6 +76,22 @@ export const ShoppingCart = ({ onCheckout }: ShoppingCartProps) => {
                     <p className="text-xs text-gray-400 mt-1">
                       SKU: {item.sku}
                     </p>
+                    {item.packaging && item.packaging.length > 1 && (
+                      <select
+                        value={item.selectedUnit?.unit || ''}
+                        onChange={(e) => updateItemUnit(item.productId, e.target.value)}
+                        className="mt-1 px-2 py-1 text-xs bg-[--color-primary-dark] text-white border border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-[--color-accent-green]"
+                      >
+                        {item.packaging
+                          .filter(p => p.isSellable)
+                          .sort((a, b) => a.level - b.level)
+                          .map((pack) => (
+                            <option key={pack.unit} value={pack.unit}>
+                              {pack.unit} ({pack.quantityPerUnit})
+                            </option>
+                          ))}
+                      </select>
+                    )}
                     {item.requiresPrescription && (
                       <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-orange-500 text-white rounded">
                         Rx Required
@@ -157,8 +174,13 @@ export const ShoppingCart = ({ onCheckout }: ShoppingCartProps) => {
                   {/* Price */}
                   <div className="text-right">
                     <p className="text-xs text-gray-400">
-                      {format(item.unitPrice)} each
+                      {format(item.unitPrice)} per {item.selectedUnit?.unit || item.unit || 'unit'}
                     </p>
+                    {item.selectedUnit && item.selectedUnit.level > 0 && (
+                      <p className="text-xs text-gray-500">
+                        ({item.selectedUnit.quantityPerUnit} base units)
+                      </p>
+                    )}
                     <p className="text-lg font-bold text-[--color-accent-green]">
                       {format(item.subtotal)}
                     </p>

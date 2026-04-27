@@ -17,6 +17,20 @@ interface Product {
   sellingPrice: number;
   requiresPrescription: boolean;
   stockAvailable: number;
+  packaging?: PackagingUnit[];
+}
+
+interface PackagingUnit {
+  level: number;
+  unit: string;
+  quantityPerUnit: number;
+  barcode?: string;
+  sku?: string;
+  isSellable: boolean;
+  isDefault?: boolean;
+  price?: number;
+  useAutoPrice?: boolean;
+  markupPercentage?: number;
 }
 
 interface ProductSearchProps {

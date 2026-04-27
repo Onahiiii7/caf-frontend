@@ -33,6 +33,20 @@ interface Product {
   imageUrl?: string;
   stock: number;
   requiresPrescription: boolean;
+  packaging?: PackagingUnit[];
+}
+
+interface PackagingUnit {
+  level: number;
+  unit: string;
+  quantityPerUnit: number;
+  barcode?: string;
+  sku?: string;
+  isSellable: boolean;
+  isDefault?: boolean;
+  price?: number;
+  useAutoPrice?: boolean;
+  markupPercentage?: number;
 }
 
 export const POSPage = () => {
@@ -367,20 +381,27 @@ export const POSPage = () => {
     });
   };
 
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = (product: Product, selectedUnit?: PackagingUnit) => {
     if (product.stock <= 0) return;
     if (!currentShift || currentShift.status !== 'open') {
       setShowShiftModal(true);
       return;
     }
+    const sellableUnits = product.packaging?.filter(p => p.isSellable) || [];
+    const unitToUse = selectedUnit || sellableUnits[0];
+    const quantityPerUnit = unitToUse?.quantityPerUnit || 1;
+    
     addItem({
       productId: product._id,
       productName: product.name,
       sku: product.sku,
       barcode: product.barcode || '',
       quantity: 1,
-      unitPrice: product.price,
+      unit: unitToUse?.unit || product.category,
+      unitPrice: product.price * quantityPerUnit,
       requiresPrescription: product.requiresPrescription,
+      packaging: product.packaging,
+      selectedUnit: unitToUse,
     });
   };
 

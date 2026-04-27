@@ -20,6 +20,19 @@ import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import { usePagination } from '../../hooks/usePagination';
 import { useBranchAwareCRUDMutations } from '../../hooks/useCRUDMutations';
 
+interface PackagingUnit {
+  level: number;
+  unit: string;
+  quantityPerUnit: number;
+  barcode?: string;
+  sku?: string;
+  isSellable: boolean;
+  isDefault?: boolean;
+  price?: number;
+  useAutoPrice?: boolean;
+  markupPercentage?: number;
+}
+
 interface Product {
   _id: string;
   name: string;
@@ -27,7 +40,9 @@ interface Product {
   barcode: string;
   category: string;
   brand: string;
+  productType?: 'pharmaceutical' | 'laboratory' | 'general';
   unit: string;
+  packaging?: PackagingUnit[];
   reorderLevel: number;
   basePrice: number;
   costPrice: number;
@@ -47,7 +62,10 @@ interface ProductFormData {
    barcode: string;
    category: string;
    brand: string;
+   productType?: 'pharmaceutical' | 'laboratory' | 'general';
    unit: string;
+   packaging?: PackagingUnit[];
+   defaultSellableLevel: number;
    initialStock: number;
    initialLotNumber?: string;
    initialExpiryDate?: string;
@@ -189,7 +207,10 @@ export const ProductManagementPage = () => {
       barcode: data.barcode,
       category: data.category,
       brand: data.brand,
+      productType: data.productType,
       unit: data.unit,
+      packaging: data.packaging,
+      defaultSellableLevel: data.defaultSellableLevel,
       reorderLevel: data.reorderLevel,
       basePrice: data.basePrice,
       costPrice: data.costPrice,
@@ -198,16 +219,13 @@ export const ProductManagementPage = () => {
       requiresPrescription: data.requiresPrescription,
       isControlled: data.isControlled,
       branchId: data.branchId,
-      // Initial stock fields are optional in DTO, always include them if provided
       initialStock: data.initialStock,
       initialLotNumber: data.initialLotNumber,
       initialExpiryDate: data.initialExpiryDate,
       initialSupplierId: data.initialSupplierId,
       initialPurchasePrice: data.initialPurchasePrice,
       initialSellingPrice: data.initialSellingPrice,
-      // maxStockLevel is optional in DTO
       maxStockLevel: data.maxStockLevel,
-      // Server-generated fields - provide defaults for create
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -224,7 +242,10 @@ export const ProductManagementPage = () => {
       name: data.name,
       category: data.category,
       brand: data.brand,
+      productType: data.productType,
       unit: data.unit,
+      packaging: data.packaging,
+      defaultSellableLevel: data.defaultSellableLevel,
       basePrice: data.basePrice,
       costPrice: data.costPrice,
       suggestedRetailPrice: data.suggestedRetailPrice,
@@ -246,8 +267,15 @@ export const ProductManagementPage = () => {
         barcode: product.barcode,
         category: product.category,
         brand: product.brand,
+        productType: product.productType || 'pharmaceutical',
         unit: product.unit,
-        initialStock: 0, // Don't show existing stock when editing
+        packaging: product.packaging?.map(p => ({
+          ...p,
+          useAutoPrice: p.price === undefined,
+          markupPercentage: p.markupPercentage || 0,
+        })) || [{ level: 0, unit: product.unit, quantityPerUnit: 1, isSellable: true, isDefault: true, useAutoPrice: true }],
+        defaultSellableLevel: (product as any).defaultSellableLevel || 1,
+        initialStock: 0,
         initialLotNumber: '',
         initialExpiryDate: '',
         initialSupplierId: '',
@@ -261,7 +289,7 @@ export const ProductManagementPage = () => {
         isControlled: product.isControlled,
         reorderLevel: product.reorderLevel || 0,
         maxStockLevel: product.maxStockLevel || undefined,
-        branchId: '', // Branch can't be changed when editing
+        branchId: '',
       });
     } else {
       setEditingProduct(null);
@@ -272,7 +300,15 @@ export const ProductManagementPage = () => {
         barcode: '',
         category: '',
         brand: '',
-        unit: 'piece',
+        productType: 'pharmaceutical',
+        unit: 'tablet',
+        packaging: [
+          { level: 0, unit: 'tablet', quantityPerUnit: 1, isSellable: false, isDefault: false, useAutoPrice: true, markupPercentage: 0 },
+          { level: 1, unit: 'card', quantityPerUnit: 10, isSellable: true, isDefault: true, useAutoPrice: true, markupPercentage: 100 },
+          { level: 2, unit: 'pack', quantityPerUnit: 4, isSellable: true, isDefault: false, useAutoPrice: true, markupPercentage: 300 },
+          { level: 3, unit: 'box', quantityPerUnit: 10, isSellable: true, isDefault: false, useAutoPrice: true, markupPercentage: 500 },
+        ],
+        defaultSellableLevel: 1,
         initialStock: 0,
         initialLotNumber: '',
         initialExpiryDate: '',
@@ -285,7 +321,7 @@ export const ProductManagementPage = () => {
         markupPercentage: 0,
         requiresPrescription: false,
         isControlled: false,
-        branchId: defaultBranchId, // Default to currently selected branch
+        branchId: defaultBranchId,
       });
     }
     setIsModalOpen(true);
@@ -552,7 +588,17 @@ export const ProductManagementPage = () => {
                     <option value="first-aid" className="bg-primary-dark text-white">First Aid</option>
                     <option value="diabetic-care" className="bg-primary-dark text-white">Diabetic Care</option>
                     <option value="cosmetics" className="bg-primary-dark text-white">Cosmetics</option>
+                    <option value="laboratory" className="bg-primary-dark text-white">Laboratory/Reagents</option>
                     <option value="other" className="bg-primary-dark text-white">Other</option>
+                  </Select>
+                  <Select
+                    label="Product Type"
+                    {...register('productType')}
+                    error={errors.productType?.message}
+                  >
+                    <option value="pharmaceutical" className="bg-primary-dark text-white">Pharmaceutical</option>
+                    <option value="laboratory" className="bg-primary-dark text-white">Laboratory</option>
+                    <option value="general" className="bg-primary-dark text-white">General</option>
                   </Select>
                   <Input
                     label="Brand"
@@ -562,7 +608,7 @@ export const ProductManagementPage = () => {
                 </div>
 
                 <Select
-                  label="Unit of Measurement"
+                  label="Base Unit of Measurement"
                   {...register('unit', { required: 'Unit is required' })}
                   error={errors.unit?.message}
                 >
@@ -583,7 +629,185 @@ export const ProductManagementPage = () => {
                   <option value="mg" className="bg-primary-dark text-white">Milligram (mg)</option>
                   <option value="g" className="bg-primary-dark text-white">Gram (g)</option>
                   <option value="piece" className="bg-primary-dark text-white">Piece</option>
+                  <option value="roll" className="bg-primary-dark text-white">Roll</option>
+                  <option value="set" className="bg-primary-dark text-white">Set</option>
+                  <option value="pair" className="bg-primary-dark text-white">Pair</option>
                 </Select>
+
+                {/* Packaging Configuration */}
+                <div className="space-y-4 p-4 bg-white/5 rounded-xl border border-white/10">
+                  <h3 className="text-sm font-semibold text-white">Packaging Hierarchy & Pricing</h3>
+                  <p className="text-xs text-gray-400">Configure how this product is packaged and sold. Mark sellable units below.</p>
+
+                  {/* Packaging Levels Table */}
+                  <div className="space-y-3">
+                    {watch('packaging')?.map((pack, index) => (
+                      <div key={index} className="grid grid-cols-12 gap-2 items-center p-3 bg-[--color-primary-dark] rounded-lg">
+                        <div className="col-span-1 text-xs text-gray-400 text-center">
+                          L{index}
+                        </div>
+                        <div className="col-span-3">
+                          <Input
+                            placeholder="Unit name"
+                            value={pack.unit}
+                            onChange={(e) => {
+                              const newPackaging = [...(watch('packaging') || [])];
+                              newPackaging[index].unit = e.target.value;
+                              setValue('packaging', newPackaging);
+                            }}
+                            className="!py-1 !text-sm"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <Input
+                            type="number"
+                            min="1"
+                            placeholder="Qty"
+                            value={pack.quantityPerUnit}
+                            onChange={(e) => {
+                              const newPackaging = [...(watch('packaging') || [])];
+                              newPackaging[index].quantityPerUnit = parseInt(e.target.value) || 1;
+                              setValue('packaging', newPackaging);
+                            }}
+                            className="!py-1 !text-sm"
+                          />
+                        </div>
+                        <div className="col-span-2 flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={pack.isSellable}
+                            onChange={(e) => {
+                              const newPackaging = [...(watch('packaging') || [])];
+                              newPackaging[index].isSellable = e.target.checked;
+                              if (e.target.checked && !newPackaging.some(p => p.isDefault)) {
+                                newPackaging[index].isDefault = true;
+                              }
+                              setValue('packaging', newPackaging);
+                            }}
+                            className="h-4 w-4 rounded border-gray-600 bg-primary-darker text-accent-green focus:ring-accent-green"
+                          />
+                          <span className="ml-2 text-xs text-gray-300">Sell</span>
+                        </div>
+                        <div className="col-span-3 flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={pack.isDefault || false}
+                            disabled={!pack.isSellable}
+                            onChange={(e) => {
+                              const newPackaging = [...(watch('packaging') || [])];
+                              newPackaging.forEach((p, i) => {
+                                p.isDefault = i === index ? e.target.checked : false;
+                              });
+                              setValue('packaging', newPackaging);
+                              if (e.target.checked) {
+                                setValue('defaultSellableLevel', index);
+                              }
+                            }}
+                            className="h-4 w-4 rounded border-gray-600 bg-primary-darker text-accent-green focus:ring-accent-green disabled:opacity-50"
+                          />
+                          <span className="ml-2 text-xs text-gray-300">Default</span>
+                        </div>
+                        <div className="col-span-1 flex justify-end">
+                          {index > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newPackaging = [...(watch('packaging') || [])];
+                                newPackaging.splice(index, 1);
+                                newPackaging.forEach((p, i) => p.level = i);
+                                setValue('packaging', newPackaging);
+                              }}
+                              className="text-red-400 hover:text-red-300 p-1"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add Packaging Level */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentPackaging = watch('packaging') || [];
+                      const newLevel = currentPackaging.length;
+                      setValue('packaging', [
+                        ...currentPackaging,
+                        { level: newLevel, unit: '', quantityPerUnit: 10, isSellable: true, isDefault: false, useAutoPrice: true, markupPercentage: 100 }
+                      ]);
+                    }}
+                    className="text-sm text-accent-green hover:text-accent-green/80 flex items-center gap-2"
+                  >
+                    <span>+</span> Add Packaging Level
+                  </button>
+
+                  {/* Quick Presets */}
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setValue('packaging', [
+                          { level: 0, unit: 'tablet', quantityPerUnit: 1, isSellable: false, isDefault: false, useAutoPrice: true, markupPercentage: 0 },
+                          { level: 1, unit: 'card', quantityPerUnit: 10, isSellable: true, isDefault: true, useAutoPrice: true, markupPercentage: 100 },
+                          { level: 2, unit: 'pack', quantityPerUnit: 4, isSellable: true, isDefault: false, useAutoPrice: true, markupPercentage: 300 },
+                          { level: 3, unit: 'box', quantityPerUnit: 10, isSellable: true, isDefault: false, useAutoPrice: true, markupPercentage: 500 },
+                        ]);
+                        setValue('defaultSellableLevel', 1);
+                      }}
+                      className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-300"
+                    >
+                      Tab → Card → Pack → Box
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setValue('packaging', [
+                          { level: 0, unit: 'ml', quantityPerUnit: 1, isSellable: false, isDefault: false, useAutoPrice: true, markupPercentage: 0 },
+                          { level: 1, unit: 'bottle', quantityPerUnit: 500, isSellable: true, isDefault: true, useAutoPrice: true, markupPercentage: 100 },
+                        ]);
+                        setValue('defaultSellableLevel', 1);
+                      }}
+                      className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-300"
+                    >
+                      ml → Bottle
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setValue('packaging', [
+                          { level: 0, unit: 'piece', quantityPerUnit: 1, isSellable: true, isDefault: true, useAutoPrice: true, markupPercentage: 0 },
+                        ]);
+                        setValue('defaultSellableLevel', 0);
+                      }}
+                      className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-300"
+                    >
+                      Single Item Only
+                    </button>
+                  </div>
+                </div>
+
+                {/* Pricing Preview based on Base Price */}
+                <div className="space-y-3 p-4 bg-white/5 rounded-xl border border-white/10">
+                  <h3 className="text-sm font-semibold text-white">Pricing Preview</h3>
+                  <p className="text-xs text-gray-400">Prices auto-calculated from base price and markup. Edit markup to adjust.</p>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {watch('packaging')?.filter(p => p.isSellable).map((pack, idx) => {
+                      const baseQty = watch('packaging')?.slice(0, pack.level).reduce((acc, p) => acc * p.quantityPerUnit, 1) || 1;
+                      const totalBaseUnits = baseQty * pack.quantityPerUnit;
+                      const calculatedPrice = watch('basePrice') ? (watch('basePrice') * (1 + (pack.markupPercentage || 0) / 100) * totalBaseUnits).toFixed(2) : '0.00';
+                      return (
+                        <div key={idx} className="p-2 bg-primary-dark rounded border border-gray-700">
+                          <p className="text-xs text-gray-400">{pack.unit}</p>
+                          <p className="text-sm font-bold text-accent-green">₦{calculatedPrice}</p>
+                          <p className="text-xs text-gray-500">+{(pack.markupPercentage || 0)}% markup</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Input

@@ -21,6 +21,20 @@ interface Product {
   imageUrl?: string;
   stock: number;
   requiresPrescription: boolean;
+  packaging?: PackagingUnit[];
+}
+
+interface PackagingUnit {
+  level: number;
+  unit: string;
+  quantityPerUnit: number;
+  barcode?: string;
+  sku?: string;
+  isSellable: boolean;
+  isDefault?: boolean;
+  price?: number;
+  useAutoPrice?: boolean;
+  markupPercentage?: number;
 }
 
 type Category = 'all' | 'otc' | 'prescription' | 'vitamins' | 'supplies';

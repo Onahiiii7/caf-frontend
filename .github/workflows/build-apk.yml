@@ -28,15 +28,16 @@ jobs:
     name: Build ${{ github.event.inputs.build_type || 'release' }} APK
     runs-on: ubuntu-latest
 
-steps:
-       - name: Checkout code
-         uses: actions/checkout@v4
-       - name: Debug directory structure
-         run: |
-           echo "Repository root: $GITHUB_WORKSPACE"
-           ls -la
-           echo "Contents of current directory:"
-           ls -la .
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Debug directory structure
+        run: |
+          echo "Repository root: $GITHUB_WORKSPACE"
+          ls -la
+          echo "Contents of current directory:"
+          ls -la .
 
       - name: Set up Java 21
         uses: actions/setup-java@v4
@@ -56,31 +57,28 @@ steps:
         run: npm install -g pnpm
 
       - name: Install frontend dependencies
-        working-directory: frontend
         run: pnpm install --frozen-lockfile
 
       - name: Build web assets
-        working-directory: frontend
         run: pnpm run build
 
       - name: Sync Capacitor to Android
-        working-directory: frontend
         run: pnpm exec cap sync android
 
       - name: Make Gradle wrapper executable
-        working-directory: frontend/android
+        working-directory: android
         run: chmod +x ./gradlew
 
       # ── Release signing setup ──────────────────────────────────────────────
       - name: Decode keystore from secret
         if: env.BUILD_TYPE == 'release'
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 --decode > frontend/android/release-key.jks
+          echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 --decode > android/release-key.jks
 
       - name: Write keystore.properties
         if: env.BUILD_TYPE == 'release'
         run: |
-          cat > frontend/android/keystore.properties << EOF
+          cat > android/keystore.properties << EOF
           storeFile=../release-key.jks
           storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
@@ -90,12 +88,12 @@ steps:
       # ── Build ──────────────────────────────────────────────────────────────
       - name: Build signed release APK
         if: env.BUILD_TYPE == 'release'
-        working-directory: frontend/android
+        working-directory: android
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Build debug APK
         if: env.BUILD_TYPE == 'debug'
-        working-directory: frontend/android
+        working-directory: android
         run: ./gradlew assembleDebug --no-daemon
 
       # ── Artifacts ─────────────────────────────────────────────────────────
@@ -104,7 +102,7 @@ steps:
         uses: actions/upload-artifact@v4
         with:
           name: CAF-Pharmacy-release-${{ github.run_number }}
-          path: frontend/android/app/build/outputs/apk/release/app-release.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
 
       - name: Upload debug APK
@@ -112,13 +110,12 @@ steps:
         uses: actions/upload-artifact@v4
         with:
           name: CAF-Pharmacy-debug-${{ github.run_number }}
-          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
 
       # ── Capgo live update (optional) ──────────────────────────────────────
       - name: Publish web bundle to Capgo
         if: github.event.inputs.upload_to_capgo == 'true'
-        working-directory: frontend
         env:
           CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}
         run: |
@@ -130,8 +127,8 @@ steps:
       - name: Remove keystore from runner
         if: always()
         run: |
-          rm -f frontend/android/release-key.jks
-          rm -f frontend/android/keystore.properties
+          rm -f android/release-key.jks
+          rm -f android/keystore.properties
 
       - name: Final cleanup
         run: echo "Build workflow completed"

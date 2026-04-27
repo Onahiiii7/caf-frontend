@@ -9,10 +9,10 @@ android {
 
 apply from: "../capacitor-cordova-android-plugins/cordova.variables.gradle"
 dependencies {
-    implementation project(':capgo-capacitor-updater')
     implementation project(':aparajita-capacitor-biometric-auth')
     implementation project(':capacitor-mlkit-barcode-scanning')
     implementation project(':capacitor-preferences')
+    implementation project(':capgo-capacitor-updater')
 
 }
 

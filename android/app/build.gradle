@@ -11,23 +11,13 @@ def releaseStorePassword = keystoreProperties.getProperty('storePassword') ?: Sy
 def releaseKeyAlias = keystoreProperties.getProperty('keyAlias') ?: System.getenv('ANDROID_KEY_ALIAS')
 def releaseKeyPassword = keystoreProperties.getProperty('keyPassword') ?: System.getenv('ANDROID_KEY_PASSWORD')
 
-def isReleaseTask = gradle.startParameter.taskNames.any { taskName ->
-    taskName.toLowerCase().contains('release')
-}
-
-if (isReleaseTask) {
-    if (!releaseStoreFile || !releaseStorePassword || !releaseKeyAlias || !releaseKeyPassword) {
-        throw new GradleException('Missing Android release signing credentials. Set android/keystore.properties or ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD env vars.')
-    }
-}
-
 android {
     namespace = "com.caf.pharmacy"
-    compileSdk = rootProject.ext.compileSdkVersion
+    compileSdkVersion 36
     defaultConfig {
         applicationId "com.caf.pharmacy"
-        minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion rootProject.ext.targetSdkVersion
+        minSdkVersion 24
+        targetSdkVersion 36
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -39,7 +29,7 @@ android {
     }
     signingConfigs {
         release {
-            if (releaseStoreFile) {
+            if (releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword) {
                 storeFile file(releaseStoreFile)
                 storePassword releaseStorePassword
                 keyAlias releaseKeyAlias
@@ -51,7 +41,9 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            if (releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }

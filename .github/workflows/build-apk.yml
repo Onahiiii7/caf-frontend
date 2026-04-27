@@ -21,6 +21,7 @@ on:
 
 env:
   BUILD_TYPE: ${{ github.event.inputs.build_type || 'release' }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   build:
@@ -43,37 +44,41 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 9
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
-          cache-dependency-path: pnpm-lock.yaml
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
+        working-directory: frontend
         run: pnpm install --frozen-lockfile
 
       - name: Build web assets
+        working-directory: frontend
         run: pnpm run build
 
       - name: Sync Capacitor to Android
+        working-directory: frontend
         run: pnpm exec cap sync android
 
       - name: Make Gradle wrapper executable
-        run: chmod +x android/gradlew
+        working-directory: frontend/android
+        run: chmod +x ./gradlew
 
       # ── Release signing setup ──────────────────────────────────────────────
       - name: Decode keystore from secret
         if: env.BUILD_TYPE == 'release'
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 --decode > android/release-key.jks
+          echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 --decode > frontend/android/release-key.jks
 
       - name: Write keystore.properties
         if: env.BUILD_TYPE == 'release'
         run: |
-          cat > android/keystore.properties << EOF
+          cat > frontend/android/keystore.properties << EOF
           storeFile=../release-key.jks
           storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
@@ -83,12 +88,12 @@ jobs:
       # ── Build ──────────────────────────────────────────────────────────────
       - name: Build signed release APK
         if: env.BUILD_TYPE == 'release'
-        working-directory: android
+        working-directory: frontend/android
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Build debug APK
         if: env.BUILD_TYPE == 'debug'
-        working-directory: android
+        working-directory: frontend/android
         run: ./gradlew assembleDebug --no-daemon
 
       # ── Artifacts ─────────────────────────────────────────────────────────
@@ -97,7 +102,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CAF-Pharmacy-release-${{ github.run_number }}
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: frontend/android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
 
       - name: Upload debug APK
@@ -105,24 +110,20 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CAF-Pharmacy-debug-${{ github.run_number }}
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
 
       # ── Capgo live update (optional) ──────────────────────────────────────
       - name: Publish web bundle to Capgo
-        if: github.event.inputs.upload_to_capgo == 'true'
+        if: github.event.inputs.upload_to_capgo == 'true' && secrets.CAPGO_TOKEN != ''
+        working-directory: frontend
         env:
           CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}
-        run: |
-          if [ -z "$CAPGO_TOKEN" ]; then
-            echo "CAPGO_TOKEN secret not set, skipping Capgo publish."
-            exit 0
-          fi
-          npx @capgo/cli bundle upload --channel production --path dist --apikey "$CAPGO_TOKEN"
+        run: npx @capgo/cli bundle upload --channel production --path dist --apikey "$CAPGO_TOKEN"
 
       # ── Cleanup secrets ────────────────────────────────────────────────────
       - name: Remove keystore from runner
         if: always() && env.BUILD_TYPE == 'release'
         run: |
-          rm -f android/release-key.jks
-          rm -f android/keystore.properties
+          rm -f frontend/android/release-key.jks
+          rm -f frontend/android/keystore.properties
